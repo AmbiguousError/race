@@ -10,10 +10,8 @@ body {
 #race-container {
     position: relative;
     width: 100%;
-    /* Remove background-color from here if it exists */
-    border-radius: .375rem; 
+    border-radius: .375rem;
     overflow: hidden;
-    /* This line forces the container to respect the canvas's aspect ratio */
     line-height: 0; 
 }
 
@@ -21,9 +19,8 @@ body {
     display: block;
     width: 100%;
     height: auto;
-    background-color: #1a472a; /* Grass color here */
+    background-color: #1a472a; /* Grass color */
 }
-
 
 /* Standings Table styles */
 #standings-container {
@@ -39,11 +36,11 @@ body {
 #standings-table th {
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #adb5bd; /* Bootstrap muted text color */
+    color: #adb5bd;
 }
 
 .player-row {
-    background-color: #006F62; /* Highlight player's team color */
+    background-color: #006F62;
     font-weight: bold;
 }
 
