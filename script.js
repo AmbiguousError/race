@@ -82,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (index > 0) {
                 const carInFront = gameState.cars[index - 1];
                 const diff = carInFront.totalProgress - car.totalProgress;
+                // CORRECTED GAP CALCULATION
                 const visualSecondsGap = car.speed > 0 ? diff / (car.speed * FPS) : 999;
                 const simulatedSecondsGap = visualSecondsGap * TIME_SCALE_FACTOR;
                 gapText = `+${simulatedSecondsGap.toFixed(2)}s`;
