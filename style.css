@@ -1,19 +1,24 @@
 body {
-    background-color: #212529; /* Bootstrap dark gray */
+    background-color: #212529;
+    /* Removed fixed height and overflow to allow scrolling */
 }
 
 #setup-screen, #race-screen {
     padding-top: 1rem;
     padding-bottom: 1rem;
+    max-width: 1600px; /* Optional: sets a max width for very large screens */
 }
 
 #race-container {
-    position: relative;
+    position: sticky; /* Makes the track stick to the top on scroll */
+    top: 1rem;
     width: 100%;
     border-radius: .375rem;
     overflow: hidden;
     line-height: 0; 
 }
+/* ... The rest of the CSS is unchanged ... */
+
 
 #race-track {
     display: block;
