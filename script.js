@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const raceScreen = document.getElementById('race-screen');
     const canvas = document.getElementById('race-track');
     const ctx = canvas.getContext('2d');
+    const standingsContainer = document.getElementById('standings-container');
 
     // UI Panels
     const lapCounter = document.getElementById('lap-counter');
@@ -21,11 +22,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Track Image
     const trackImage = new Image();
-    trackImage.src = 'assets/track.png'; // Make sure this path is correct!
+    trackImage.src = 'assets/track.png';
 
     // --- GAME CONFIGURATION ---
     const TOTAL_LAPS = 50;
     const CAR_COUNT = 20;
+    const FPS = 60; // For gap calculations
 
     const TEAMS = {
         "Mercedes": { color: "#00D2BE", basePace: 1.02 },
@@ -53,12 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- GAME STATE ---
     let gameState = {
         raceActive: false,
-        currentLap: 1,
         playerTeam: null,
         cars: [],
     };
     
-    // --- TRACK DATA (Pre-mapped for the track image) ---
+    // --- TRACK DATA ---
     const trackPath = [
         { x: 865, y: 485 }, { x: 865, y: 400 }, { x: 865, y: 300 }, { x: 865, y: 200 },
         { x: 860, y: 125 }, { x: 835, y: 80  }, { x: 790, y: 55  }, { x: 740, y: 50  },
@@ -99,15 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const teamNames = Object.keys(TEAMS);
         const playerTeamName = gameState.playerTeam;
         
-        // Create Player Car first
         gameState.cars.push(createCar(0, playerTeamName, true));
 
-        // Create AI Cars
         let teamIndex = 0;
         for (let i = 1; i < CAR_COUNT; i++) {
-            if (teamNames[teamIndex] === playerTeamName) {
-                teamIndex++; // Skip player's team for AI
-            }
+            if (teamNames[teamIndex] === playerTeamName) teamIndex++;
             const teamName = teamNames[teamIndex % teamNames.length];
             gameState.cars.push(createCar(i, teamName, false));
             teamIndex++;
@@ -123,14 +120,13 @@ document.addEventListener('DOMContentLoaded', () => {
             isPlayer: isPlayer,
             team: TEAMS[teamName],
             driverName: isPlayer ? "YOU" : `Driver ${id+1}`,
-            progress: TRACK_LENGTH - id * (TRACK_LENGTH / CAR_COUNT) * 0.5, // Tighter start
+            progress: TRACK_LENGTH - id * (TRACK_LENGTH / CAR_COUNT) * 0.5,
             lap: 1,
             speed: 0,
             tyre: { ...TYRE_COMPOUNDS.Medium, wear: 100, compoundName: 'Medium' },
             pushLevel: 3,
-            pitting: false,
-            pitRequest: false,
-            pitStopTime: 0,
+            pitting: false, pitRequest: false, pitStopTime: 0,
+            totalProgress: 0, // Used for gap calculation
         };
     }
 
@@ -144,57 +140,49 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateState() {
         gameState.cars.forEach(car => {
             if (car.pitting) {
-                car.pitStopTime -= 1 / 60; // Assumes 60 FPS
-                if (car.pitStopTime <= 0) {
-                    car.pitting = false;
-                }
-                return; // Car is in pits, no movement or logic
+                car.pitStopTime -= 1 / FPS;
+                if (car.pitStopTime <= 0) car.pitting = false;
+                return;
             }
 
-            // AI Logic for pitting
             if (!car.isPlayer) {
                 if ((car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40)) && !car.pitRequest) {
                     car.pitRequest = true;
                 }
             }
 
-            // Check for entering pit lane (at the end of the lap)
             if (car.pitRequest && car.progress >= TRACK_LENGTH - 10 && car.progress < TRACK_LENGTH) {
                 car.pitting = true;
                 car.pitRequest = false;
                 
                 if (car.isPlayer) {
                     pitModal.classList.remove('hidden');
-                    gameState.raceActive = false; // Pause game for player choice
+                    gameState.raceActive = false;
                 } else {
-                    const newTyre = car.tyre.wear < 15 ? 'Hard' : 'Medium'; // Simple AI tyre choice
+                    const newTyre = car.tyre.wear < 15 ? 'Hard' : 'Medium';
                     car.tyre = { ...TYRE_COMPOUNDS[newTyre], wear: 100, compoundName: newTyre };
                     car.pitStopTime = 3 + Math.random();
                 }
             }
 
-            // Calculate Speed: BasePace * TyreGrip * PushFactor * TyreWearFactor
             const push = PUSH_LEVELS[car.pushLevel];
             const wearFactor = 0.85 + (car.tyre.wear / 100) * 0.15;
-            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.8; // Speed multiplier
+            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.8;
             car.speed = speed;
 
-            // Update progress and tyre wear
             car.progress += car.speed;
             const wearRate = car.tyre.degradation * push.tyreEffect;
             car.tyre.wear -= wearRate;
             if (car.tyre.wear < 0) car.tyre.wear = 0;
 
-            // Lap completion
             if (car.progress >= TRACK_LENGTH) {
                 car.progress %= TRACK_LENGTH;
                 car.lap++;
-                // Race finish condition could go here
             }
+            car.totalProgress = (car.lap -1) * TRACK_LENGTH + car.progress;
         });
 
-        // Sort cars by position
-        gameState.cars.sort((a, b) => (b.lap - a.lap) || (b.progress - a.progress));
+        gameState.cars.sort((a, b) => b.totalProgress - a.totalProgress);
         updateUI();
     }
 
@@ -203,8 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(trackImage, 0, 0, canvas.width, canvas.height);
         
         gameState.cars.forEach(car => {
-            if (car.pitting) return; // Don't draw cars in the pits
-
+            if (car.pitting) return;
             const posIndex = Math.floor(car.progress) % TRACK_LENGTH;
             const pos = trackPath[posIndex];
             
@@ -212,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, 6, 0, 2 * Math.PI);
             ctx.fill();
-            
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 1;
             ctx.stroke();
@@ -223,28 +209,52 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerCar = gameState.cars.find(c => c.isPlayer);
         if (!playerCar) return;
 
+        // Update player status panel
         const playerRank = gameState.cars.findIndex(c => c.isPlayer) + 1;
-
         lapCounter.textContent = `${playerCar.lap} / ${TOTAL_LAPS}`;
         playerPosition.textContent = `${playerRank} / ${CAR_COUNT}`;
         playerTyreCompound.textContent = playerCar.tyre.compoundName;
         playerTyreWear.textContent = `${playerCar.tyre.wear.toFixed(1)}%`;
         playerPushText.textContent = PUSH_LEVELS[playerCar.pushLevel].name;
-
-        // Update tyre wear color
         if (playerCar.tyre.wear > 60) playerTyreWear.style.color = 'lightgreen';
         else if (playerCar.tyre.wear > 30) playerTyreWear.style.color = 'orange';
         else playerTyreWear.style.color = 'red';
+
+        // Update live standings table
+        let tableHTML = `<table id="standings-table"><thead><tr><th>Pos</th><th>Driver</th><th>Gap</th><th>Tyre</th></tr></thead><tbody>`;
+        const leader = gameState.cars[0];
+
+        gameState.cars.forEach((car, index) => {
+            let gapText = '';
+            if (index > 0) {
+                const carInFront = gameState.cars[index - 1];
+                const progressDiff = carInFront.totalProgress - car.totalProgress;
+                // Convert progress difference to time. (distance / speed) / framerate
+                const gapInSeconds = (progressDiff / car.speed) / FPS;
+                gapText = `+${gapInSeconds.toFixed(2)}s`;
+            } else {
+                gapText = "Interval";
+            }
+            
+            const tyreColor = car.tyre.compoundName === 'Soft' ? 'red' : car.tyre.compoundName === 'Medium' ? 'yellow' : 'white';
+            const playerClass = car.isPlayer ? 'player-row' : '';
+
+            tableHTML += `<tr class="${playerClass}">
+                <td>${index + 1}</td>
+                <td>${car.driverName}</td>
+                <td>${gapText}</td>
+                <td><span class="tyre-indicator" style="background-color:${tyreColor};"></span>${car.tyre.compoundName[0]}</td>
+            </tr>`;
+        });
+
+        tableHTML += `</tbody></table>`;
+        standingsContainer.innerHTML = tableHTML;
     }
 
     // --- EVENT LISTENERS ---
-    
     pushSlider.addEventListener('input', (e) => {
         const playerCar = gameState.cars.find(c => c.isPlayer);
-        if (playerCar) {
-            playerCar.pushLevel = parseInt(e.target.value);
-            updateUI(); // Immediate feedback
-        }
+        if (playerCar) playerCar.pushLevel = parseInt(e.target.value);
     });
 
     pitButton.addEventListener('click', () => {
@@ -262,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const playerCar = gameState.cars.find(c => c.isPlayer);
             
             playerCar.tyre = { ...TYRE_COMPOUNDS[chosenTyre], wear: 100, compoundName: chosenTyre };
-            playerCar.pitStopTime = 2.5 + Math.random() * 0.5; // Player team is fast!
+            playerCar.pitStopTime = 2.5 + Math.random() * 0.5;
             
             pitButton.textContent = "Request Pit Stop";
             pitButton.disabled = false;
