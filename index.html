@@ -25,19 +25,24 @@
                 <p>Lap: <span id="lap-counter">1 / 50</span></p>
                 <p>Position: <span id="player-position">1 / 20</span></p>
             </div>
-            <hr>
+            
             <h3>Your Status</h3>
             <div id="player-status">
                 <p>Tyres: <span id="player-tyre-compound">Medium</span> (<span id="player-tyre-wear">100%</span>)</p>
                 <p>Push Level: <span id="player-push-text">Balanced</span></p>
             </div>
-            <hr>
+            
             <h3>Controls</h3>
             <div class="control-group">
                 <label for="push-slider">Push Level:</label>
                 <input type="range" id="push-slider" min="1" max="5" value="3" step="1">
             </div>
             <button id="pit-button">Request Pit Stop</button>
+            
+            <hr>
+            <h3>Live Standings</h3>
+            <div id="standings-container">
+                </div>
         </div>
     </div>
 
