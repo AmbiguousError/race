@@ -79,9 +79,10 @@ body {
     vertical-align: middle;
 }
 
+/* Corrected Button Positioning */
 #audio-toggle-button {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 0.75rem;   /* Increased from 10px */
+    right: 0.75rem;  /* Increased from 10px */
     z-index: 10;
 }
