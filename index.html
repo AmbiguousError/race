@@ -18,12 +18,11 @@
                         <div id="team-selection-view">
                             <h1 class="card-title">F1 Race Simulator</h1>
                             <p class="card-text">Choose your team to begin:</p>
-                            <div id="team-selection" class="d-grid gap-2">
-                                </div>
+                            <div id="team-selection" class="d-grid gap-2"></div>
                         </div>
                         <div id="tyre-selection-view" class="d-none">
                             <h1 class="card-title">Select Starting Tyres</h1>
-                            <p class="card-text">Qualifying is over. Choose your tyres for the race start.</p>
+                            <p class="card-text">Choose your tyres for the race start.</p>
                             <div id="starting-tyre-choices" class="d-grid gap-2 d-md-flex justify-content-md-center">
                                 <button class="btn btn-outline-danger" data-tyre="Soft">Soft</button>
                                 <button class="btn btn-outline-warning" data-tyre="Medium">Medium</button>
@@ -43,12 +42,10 @@
                     <canvas id="race-track"></canvas>
                 </div>
             </div>
-
             <div class="col-lg-4">
                 <div class="card bg-secondary text-light h-100">
                     <div class="card-body d-flex flex-column">
                         <h4 class="card-title">Race Control</h4>
-                        
                         <h5>Your Status</h5>
                         <div id="player-status" class="mb-3">
                             <p class="mb-1"><strong>Lap:</strong> <span id="lap-counter">1 / 50</span></p>
@@ -56,17 +53,16 @@
                             <p class="mb-1"><strong>Tyres:</strong> <span id="player-tyre-compound">Medium</span> (<span id="player-tyre-wear">100%</span>)</p>
                             <p class="mb-1"><strong>Push:</strong> <span id="player-push-text">Balanced</span></p>
                         </div>
-
                         <h5>Controls</h5>
                         <div class="mb-3">
                             <label for="push-slider" class="form-label">Push Level</label>
                             <input type="range" class="form-range" id="push-slider" min="1" max="5" value="3" step="1">
                         </div>
                         <button id="pit-button" class="btn btn-danger w-100 mb-3">Request Pit Stop</button>
-
-                        <h5 class="mt-auto">Live Standings</h5>
+                        
+                        <h5 class="mt-3">Live Standings</h5>
                         <div id="standings-container">
-                            <table id="standings-table" class="table table-dark table-sm table-borderless">
+                             <table id="standings-table" class="table table-dark table-sm table-borderless">
                                 <thead>
                                     <tr>
                                         <th>Pos</th>
@@ -77,10 +73,12 @@
                                         <th>Tyre</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    </tbody>
+                                <tbody></tbody>
                             </table>
                         </div>
+
+                        <h5 class="mt-3">Live Commentary</h5>
+                        <div id="commentary-box" class="commentary-box"></div>
                     </div>
                 </div>
             </div>
