@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM ELEMENTS ---
+    // --- DOM ELEMENTS -----
     const setupScreen = document.getElementById('setup-screen');
     const teamSelectionView = document.getElementById('team-selection-view');
     const teamSelectionContainer = document.getElementById('team-selection');
