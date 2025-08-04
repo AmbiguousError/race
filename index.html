@@ -36,87 +36,56 @@
     </div>
 
     <main id="race-screen" class="container-fluid d-none">
-        <div class="row g-3">
-            <div class="col-lg-8">
-                <div id="race-container" class="shadow">
-                    <canvas id="race-track"></canvas>
+        <header id="player-header" class="card bg-secondary text-light mb-3 shadow">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+                <div class="player-info">
+                    <h5 id="player-driver-name" class="mb-0"></h5>
+                    <span id="player-team-name" class="text-muted"></span>
+                </div>
+                <div class="player-status text-center">
+                    <div><strong>Lap:</strong> <span id="lap-counter">1 / 50</span></div>
+                    <div><strong>Pos:</strong> <span id="player-position">1 / 20</span></div>
+                    <div><strong>Tyres:</strong> <span id="player-tyre-compound">Medium</span> (<span id="player-tyre-wear">100%</span>)</div>
+                </div>
+                <div class="player-controls">
+                    <label for="push-slider" class="form-label mb-0"><strong>Push:</strong> <span id="player-push-text">Balanced</span></label>
+                    <input type="range" class="form-range" id="push-slider" min="1" max="5" value="3" step="1">
+                    <button id="pit-button" class="btn btn-danger btn-sm w-100">Request Pit Stop</button>
                 </div>
             </div>
-            <div class="col-lg-4">
-                <div class="card bg-secondary text-light h-100">
-                    <div class="card-body d-flex flex-column">
-                        <h4 class="card-title">Race Control</h4>
-                        <h5>Your Status</h5>
-                        <div id="player-status" class="mb-3">
-                            <p class="mb-1"><strong>Lap:</strong> <span id="lap-counter">1 / 50</span></p>
-                            <p class="mb-1"><strong>Position:</strong> <span id="player-position">1 / 20</span></p>
-                            <p class="mb-1"><strong>Tyres:</strong> <span id="player-tyre-compound">Medium</span> (<span id="player-tyre-wear">100%</span>)</p>
-                            <p class="mb-1"><strong>Push:</strong> <span id="player-push-text">Balanced</span></p>
-                        </div>
-                        <h5>Controls</h5>
-                        <div class="mb-3">
-                            <label for="push-slider" class="form-label">Push Level</label>
-                            <input type="range" class="form-range" id="push-slider" min="1" max="5" value="3" step="1">
-                        </div>
-                        <button id="pit-button" class="btn btn-danger w-100 mb-3">Request Pit Stop</button>
-                        
-                        <h5 class="mt-3">Live Standings</h5>
-                        <div id="standings-container">
-                             <table id="standings-table" class="table table-dark table-sm table-borderless">
-                                <thead>
-                                    <tr>
-                                        <th>Pos</th>
-                                        <th>Driver</th>
-                                        <th>Team</th>
-                                        <th>Gap</th>
-                                        <th>Last Lap</th>
-                                        <th>Tyre</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+        </header>
 
-                        <h5 class="mt-3">Live Commentary</h5>
-                        <div id="commentary-box" class="commentary-box"></div>
-                    </div>
-                </div>
+        <div class="card bg-secondary text-light mb-3 shadow">
+            <div class="card-header"><h5>Live Commentary</h5></div>
+            <div id="commentary-box" class="commentary-box card-body"></div>
+        </div>
+
+        <div id="race-container" class="shadow mb-3">
+            <canvas id="race-track"></canvas>
+        </div>
+        
+        <div class="card bg-secondary text-light shadow">
+             <div class="card-header"><h5>Live Standings</h5></div>
+             <div id="standings-container" class="card-body">
+                 <table id="standings-table" class="table table-dark table-sm table-borderless mb-0">
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Driver</th>
+                            <th>Team</th>
+                            <th>Gap</th>
+                            <th>Last Lap</th>
+                            <th>Tyre</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
     </main>
 
-    <div class="modal fade" id="pit-stop-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-secondary text-light">
-                <div class="modal-header">
-                    <h5 class="modal-title">Pit Stop: Choose Tyres</h5>
-                </div>
-                <div class="modal-body text-center">
-                    <p>Select your next tyre compound.</p>
-                    <div id="pit-tyre-choices" class="d-grid gap-2 d-md-flex justify-content-md-center">
-                        <button class="btn btn-outline-danger" data-tyre="Soft">Soft</button>
-                        <button class="btn btn-outline-warning" data-tyre="Medium">Medium</button>
-                        <button class="btn btn-outline-light" data-tyre="Hard">Hard</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="modal fade" id="race-finish-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-secondary text-light">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title">🏁 Race Finished! 🏁</h5>
-                </div>
-                <div class="modal-body text-center">
-                    <h2 id="winner-name"></h2>
-                    <p>Wins the race!</p>
-                    <button class="btn btn-primary" onclick="window.location.reload()">Play Again</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="modal fade" id="pit-stop-modal"></div>
+    <div class="modal fade" id="race-finish-modal"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
