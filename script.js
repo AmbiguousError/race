@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =======================================================================
     // --- SIMULATOR CODE ---
     // =======================================================================
-    const CAR_COUNT = 20, FPS = 60, TIME_SCALE_FACTOR = 8, ORIGINAL_CANVAS_WIDTH = 1000;
+    const TOTAL_LAPS = 50, CAR_COUNT = 20, FPS = 60, TIME_SCALE_FACTOR = 8, ORIGINAL_CANVAS_WIDTH = 1000;
     let scaleFactor = 1, selectedTeamName = '';
     let gameState = { raceActive: false, raceFinished: false, raceTime: 0, cars: [], fastestLap: { time: Infinity, driver: '' }, previousOrder: [] };
     const TEAMS = { "Ferrari": { color: "#DC0000", basePace: 1.02, drivers: ["Leclerc", "Hamilton"] }, "Red Bull": { color: "#0600EF", basePace: 1.03, drivers: ["Verstappen", "Perez"] }, "McLaren": { color: "#FF8700", basePace: 1.015, drivers: ["Norris", "Piastri"] }, "Mercedes": { color: "#00D2BE", basePace: 1.00, drivers: ["Russell", "Antonelli"] }, "Aston Martin": { color: "#006F62", basePace: 0.99, drivers: ["Alonso", "Stroll"] }, "Audi": { color: "#D90000", basePace: 0.97, drivers: ["Hulkenberg", "Sainz"] }, "Alpine": { color: "#0090FF", basePace: 0.96, drivers: ["Gasly", "Doohan"] }, "Williams": { color: "#005AFF", basePace: 0.95, drivers: ["Albon", "Bottas"] }, "Haas": { color: "#BDBDBD", basePace: 0.94, drivers: ["Bearman", "Ocon"] }, "RB": { color: "#003060", basePace: 0.965, drivers: ["Tsunoda", "Lawson"] } };
@@ -57,73 +57,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function initRace(playerTyre) { gameState.cars = []; let pool = []; for(const t in TEAMS) TEAMS[t].drivers.forEach(d => pool.push({ team: t, driver: d })); const p_d = TEAMS[selectedTeamName].drivers[0]; gameState.cars.push(createCar(0, selectedTeamName, p_d, true, playerTyre)); pool = pool.filter(d => d.driver !== p_d); for (let i = 1; i < CAR_COUNT; i++) { const d_i = pool[i % pool.length]; const r_t = ['Soft', 'Medium', 'Hard'][Math.floor(Math.random() * 3)]; gameState.cars.push(createCar(i, d_i.team, d_i.driver, false, r_t)); } gameState.previousOrder = gameState.cars.map(c => c.id); gameState.raceActive = true; gameLoop(); }
     function createCar(id, teamName, driverName, isPlayer, startingTyre) { const parts = driverName.split(' '); const initials = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : driverName.substring(0, 2).toUpperCase(); const row = Math.floor(id / 2); const progress = -row * 1.5; return { id, isPlayer, teamName, driverName, initials, team: TEAMS[teamName], progress, lateralOffset: (id % 2 === 0 ? -1 : 1) * 5, totalProgress: progress, lap: 1, speed: 0, pushLevel: 3, tyre: { ...TYRE_COMPOUNDS[startingTyre], wear: 100, compoundName: startingTyre }, pitting: false, pitRequest: false, pitStopTime: 0, lapStartTime: 0, lastLapTime: 0 }; }
     function gameLoop() { if (!gameState.raceActive) return; gameState.raceTime += (1 / FPS) * TIME_SCALE_FACTOR; updateState(); render(); requestAnimationFrame(gameLoop); }
-    function updateState() { if (gameState.raceFinished) return; const oldOrder = gameState.previousOrder; gameState.cars.forEach(car => { if (car.pitting) { car.pitStopTime -= 1 / FPS; if (car.pitStopTime <= 0) car.pitting = false; return; } if (car.lap === 1 && Math.abs(car.lateralOffset) > 0.1) car.lateralOffset *= 0.995; else car.lateralOffset = 0; if (!car.isPlayer && (car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40)) && !car.pitRequest) car.pitRequest = true; if (car.pitRequest && car.progress >= TRACK_LENGTH - 10 && car.progress < TRACK_LENGTH) { addCommentary(`${car.driverName} heads into the pits!`, 'pit-stop', car.lap); car.pitting = true; car.pitRequest = false; if (car.isPlayer) { pitStopModal.show(); gameState.raceActive = false; } else { const nt = car.tyre.wear < 15 ? 'Hard' : 'Medium'; car.tyre = { ...TYRE_COMPOUNDS[nt], wear: 100, compoundName: nt }; car.pitStopTime = 20 + Math.random() * 2; } } const push = PUSH_LEVELS[car.pushLevel]; const wf = 0.85 + (car.tyre.wear / 100) * 0.15; car.speed = car.team.basePace * car.tyre.grip * push.paceEffect * wf * 0.08; car.progress += car.speed; car.tyre.wear -= car.tyre.degradation * push.tyreEffect; if (car.tyre.wear < 0) car.tyre.wear = 0; if (car.progress >= TRACK_LENGTH) { car.progress %= TRACK_LENGTH; car.lap++; if (car.lap > 1) { car.lastLapTime = gameState.raceTime - car.lapStartTime; if (car.lastLapTime < gameState.fastestLap.time) { gameState.fastestLap.time = car.lastLapTime; gameState.fastestLap.driver = car.driverName; addCommentary(`New fastest lap from ${car.driverName}: ${car.lastLapTime.toFixed(3)}s`, 'fastest-lap', car.lap); } } car.lapStartTime = gameState.raceTime; if (gameState.cars[0].lap > 50) endRace(gameState.cars[0]); } car.totalProgress = (car.lap - 1) * TRACK_LENGTH + car.progress; }); gameState.cars.sort((a, b) => b.totalProgress - a.totalProgress); for (let i = 0; i < CAR_COUNT; i++) { const carId = gameState.cars[i].id; const oldPos = oldOrder.indexOf(carId); if (oldPos > i) { const overtaken = gameState.cars.find(c => c.id === oldOrder[i])?.driverName; if(overtaken) addCommentary(`${gameState.cars[i].driverName} overtakes ${overtaken} for P${i+1}!`, 'overtake', gameState.cars[i].lap); } } gameState.previousOrder = gameState.cars.map(c => c.id); }
+    function updateState() { if (gameState.raceFinished) return; const oldOrder = gameState.previousOrder; gameState.cars.forEach(car => { if (car.pitting) { car.pitStopTime -= 1 / FPS; if (car.pitStopTime <= 0) car.pitting = false; return; } if (car.lap === 1 && Math.abs(car.lateralOffset) > 0.1) car.lateralOffset *= 0.995; else car.lateralOffset = 0; if (!car.isPlayer && (car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40)) && !car.pitRequest) car.pitRequest = true; if (car.pitRequest && car.progress >= TRACK_LENGTH - 10 && car.progress < TRACK_LENGTH) { addCommentary(`${car.driverName} heads into the pits!`, 'pit-stop', car.lap); car.pitting = true; car.pitRequest = false; if (car.isPlayer) { pitStopModal.show(); gameState.raceActive = false; } else { const nt = car.tyre.wear < 15 ? 'Hard' : 'Medium'; car.tyre = { ...TYRE_COMPOUNDS[nt], wear: 100, compoundName: nt }; car.pitStopTime = 20 + Math.random() * 2; } } const push = PUSH_LEVELS[car.pushLevel]; const wf = 0.85 + (car.tyre.wear / 100) * 0.15; car.speed = car.team.basePace * car.tyre.grip * push.paceEffect * wf * 0.08; car.progress += car.speed; car.tyre.wear -= car.tyre.degradation * push.tyreEffect; if (car.tyre.wear < 0) car.tyre.wear = 0; if (car.progress >= TRACK_LENGTH) { car.progress %= TRACK_LENGTH; car.lap++; if (car.lap > 1) { car.lastLapTime = gameState.raceTime - car.lapStartTime; if (car.lastLapTime < gameState.fastestLap.time) { gameState.fastestLap.time = car.lastLapTime; gameState.fastestLap.driver = car.driverName; addCommentary(`New fastest lap from ${car.driverName}: ${car.lastLapTime.toFixed(3)}s`, 'fastest-lap', car.lap); } } car.lapStartTime = gameState.raceTime; if (gameState.cars[0].lap > TOTAL_LAPS) endRace(gameState.cars[0]); } car.totalProgress = (car.lap - 1) * TRACK_LENGTH + car.progress; }); gameState.cars.sort((a, b) => b.totalProgress - a.totalProgress); for (let i = 0; i < CAR_COUNT; i++) { const carId = gameState.cars[i].id; const oldPos = oldOrder.indexOf(carId); if (oldPos > i) { const overtaken = gameState.cars.find(c => c.id === oldOrder[i])?.driverName; if(overtaken) addCommentary(`${gameState.cars[i].driverName} overtakes ${overtaken} for P${i+1}!`, 'overtake', gameState.cars[i].lap); } } gameState.previousOrder = gameState.cars.map(c => c.id); }
     function endRace(winner) { if (gameState.raceFinished) return; gameState.raceActive = false; gameState.raceFinished = true; winnerNameEl.textContent = winner.driverName; raceFinishModal.show(); }
-    
-    function render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 24 * scaleFactor;
-        ctx.beginPath();
-        ctx.moveTo(trackPath[0].x * scaleFactor, trackPath[0].y * scaleFactor);
-        for (let i = 1; i < trackPath.length; i++) ctx.lineTo(trackPath[i].x * scaleFactor, trackPath[i].y * scaleFactor);
-        ctx.closePath();
-        ctx.stroke();
-        ctx.strokeStyle = '#555555';
-        ctx.lineWidth = 20 * scaleFactor;
-        ctx.stroke();
-
-        // --- Draw Track Markers ---
-        const drawMarker = (index, text, color) => {
-            const p1 = trackPath[index % TRACK_LENGTH];
-            const p2 = trackPath[(index + 1) % TRACK_LENGTH];
-            if (!p1 || !p2) return;
-            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            const x = p1.x * scaleFactor;
-            const y = p1.y * scaleFactor;
-            
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            
-            if (text) {
-                ctx.fillStyle = color;
-                ctx.font = `bold ${10 * scaleFactor}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(text, 0, -20 * scaleFactor);
-            }
-            
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2 * scaleFactor;
-            ctx.beginPath();
-            ctx.moveTo(0, -12 * scaleFactor);
-            ctx.lineTo(0, 12 * scaleFactor);
-            ctx.stroke();
-            
-            ctx.restore();
-        };
-
-        drawMarker(0, 'START/FINISH', 'white');
-        drawMarker(TRACK_LENGTH - 10, 'PIT ENTRY', 'yellow');
-        drawMarker(5, 'PIT EXIT', 'yellow');
-        
-        // --- Draw Cars ---
-        gameState.cars.forEach(car => { if (car.pitting) return; const rawIdx = Math.floor(car.progress); const p1_idx = Math.max(0, rawIdx) % TRACK_LENGTH, p2_idx = (p1_idx + 1) % TRACK_LENGTH; const p1 = trackPath[p1_idx], p2 = trackPath[p2_idx]; if (!p1 || !p2) return; const segProg = car.progress - rawIdx; const pos = { x: p1.x + (p2.x - p1.x) * segProg, y: p1.y + (p2.y - p1.y) * segProg }; let carX = pos.x * scaleFactor, carY = pos.y * scaleFactor; if (Math.abs(car.lateralOffset) > 0) { const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); const ox = -Math.sin(angle) * car.lateralOffset * scaleFactor, oy = Math.cos(angle) * car.lateralOffset * scaleFactor; carX += ox; carY += oy; } const r = 11 * scaleFactor; ctx.fillStyle = car.team.color; ctx.beginPath(); ctx.arc(carX, carY, r, 0, 2 * Math.PI); ctx.fill(); ctx.strokeStyle = 'black'; ctx.lineWidth = Math.max(1, 1.5 * scaleFactor); ctx.stroke(); const bright = (parseInt(car.team.color.substring(1,3), 16) * 0.299) + (parseInt(car.team.color.substring(3,5), 16) * 0.587) + (parseInt(car.team.color.substring(5,7), 16) * 0.114); ctx.fillStyle = bright > 128 ? 'black' : 'white'; ctx.font = `bold ${r * 0.9}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(car.initials, carX, carY); });
-    }
+    function render() { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 24 * scaleFactor; ctx.beginPath(); ctx.moveTo(trackPath[0].x * scaleFactor, trackPath[0].y * scaleFactor); for (let i = 1; i < trackPath.length; i++) ctx.lineTo(trackPath[i].x * scaleFactor, trackPath[i].y * scaleFactor); ctx.closePath(); ctx.stroke(); ctx.strokeStyle = '#555555'; ctx.lineWidth = 20 * scaleFactor; ctx.stroke(); const drawMarker = (index, text, color) => { const p1 = trackPath[index % TRACK_LENGTH]; const p2 = trackPath[(index + 1) % TRACK_LENGTH]; if (!p1 || !p2) return; const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); const x = p1.x * scaleFactor; const y = p1.y * scaleFactor; ctx.save(); ctx.translate(x, y); ctx.rotate(angle); if (text) { ctx.fillStyle = color; ctx.font = `bold ${10 * scaleFactor}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, -20 * scaleFactor); } ctx.strokeStyle = color; ctx.lineWidth = 2 * scaleFactor; ctx.beginPath(); ctx.moveTo(0, -12 * scaleFactor); ctx.lineTo(0, 12 * scaleFactor); ctx.stroke(); ctx.restore(); }; drawMarker(0, 'S/F', 'white'); drawMarker(TRACK_LENGTH - 10, 'PIT', 'yellow'); drawMarker(5, '', 'yellow'); gameState.cars.forEach(car => { if (car.pitting) return; const rawIdx = Math.floor(car.progress); const p1_idx = Math.max(0, rawIdx) % TRACK_LENGTH, p2_idx = (p1_idx + 1) % TRACK_LENGTH; const p1 = trackPath[p1_idx], p2 = trackPath[p2_idx]; if (!p1 || !p2) return; const segProg = car.progress - rawIdx; const pos = { x: p1.x + (p2.x - p1.x) * segProg, y: p1.y + (p2.y - p1.y) * segProg }; let carX = pos.x * scaleFactor, carY = pos.y * scaleFactor; if (Math.abs(car.lateralOffset) > 0) { const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); const ox = -Math.sin(angle) * car.lateralOffset * scaleFactor, oy = Math.cos(angle) * car.lateralOffset * scaleFactor; carX += ox; carY += oy; } const r = 11 * scaleFactor; ctx.fillStyle = car.team.color; ctx.beginPath(); ctx.arc(carX, carY, r, 0, 2 * Math.PI); ctx.fill(); ctx.strokeStyle = 'black'; ctx.lineWidth = Math.max(1, 1.5 * scaleFactor); ctx.stroke(); const bright = (parseInt(car.team.color.substring(1,3), 16) * 0.299) + (parseInt(car.team.color.substring(3,5), 16) * 0.587) + (parseInt(car.team.color.substring(5,7), 16) * 0.114); ctx.fillStyle = bright > 128 ? 'black' : 'white'; ctx.font = `bold ${r * 0.9}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(car.initials, carX, carY); }); }
     
     function updateUI() {
         const playerCar = gameState.cars.find(c => c.isPlayer);
         if (!playerCar) return;
 
         const playerRank = gameState.cars.findIndex(c => c.isPlayer) + 1;
-        const totalLaps = 50; // Re-instating this for now as track-specific was removed
 
         playerDriverNameEl.textContent = playerCar.driverName;
         playerTeamNameEl.textContent = playerCar.teamName;
-        lapCounter.textContent = `${playerCar.lap > totalLaps ? totalLaps : playerCar.lap} / ${totalLaps}`;
+        lapCounter.textContent = `${playerCar.lap > TOTAL_LAPS ? TOTAL_LAPS : playerCar.lap} / ${TOTAL_LAPS}`;
         playerPosition.textContent = `${playerRank} / ${CAR_COUNT}`;
         playerTyreCompound.textContent = playerCar.tyre.compoundName;
         playerTyreWear.textContent = `${playerCar.tyre.wear.toFixed(1)}%`;
@@ -136,8 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (index > 0) {
                 const carInFront = gameState.cars[index - 1];
                 const diff = carInFront.totalProgress - car.totalProgress;
-                const gapInSeconds = car.speed > 0 ? (diff / (car.speed * FPS)) * TIME_SCALE_FACTOR : 999;
-                gapText = `+${gapInSeconds.toFixed(2)}s`;
+                const visualSecondsGap = car.speed > 0 ? diff / (car.speed * FPS) : 999;
+                const simulatedSecondsGap = visualSecondsGap * TIME_SCALE_FACTOR;
+                gapText = `+${simulatedSecondsGap.toFixed(2)}s`;
             }
             const lastLapText = car.lastLapTime > 0 ? `${car.lastLapTime.toFixed(3)}s` : "-";
             const tyreColor = TYRE_COMPOUNDS[car.tyre.compoundName]?.color || 'gray';
