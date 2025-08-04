@@ -1,33 +1,29 @@
 body {
     background-color: #212529;
-    /* Removed fixed height and overflow to allow scrolling */
 }
 
 #setup-screen, #race-screen {
     padding-top: 1rem;
     padding-bottom: 1rem;
-    max-width: 1600px; /* Optional: sets a max width for very large screens */
+    max-width: 1600px;
 }
 
 #race-container {
-    position: sticky; /* Makes the track stick to the top on scroll */
+    position: sticky;
     top: 1rem;
     width: 100%;
     border-radius: .375rem;
     overflow: hidden;
     line-height: 0; 
 }
-/* ... The rest of the CSS is unchanged ... */
-
 
 #race-track {
     display: block;
     width: 100%;
     height: auto;
-    background-color: #1a472a; /* Grass color */
+    background-color: #1a472a;
 }
 
-/* Standings Table styles */
 #standings-container {
     flex-grow: 1;
     overflow-y: auto;
@@ -58,3 +54,37 @@ body {
     box-shadow: 0 0 3px black;
     vertical-align: middle;
 }
+
+#audio-toggle-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+
+.commentary-box {
+    height: 150px;
+    background-color: #111;
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 10px;
+    overflow-y: scroll;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.commentary-box p {
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #333;
+}
+.commentary-box p:last-child {
+    border-bottom: none;
+}
+
+.commentary-fastest-lap { color: #9C27B0; font-weight: bold; }
+.commentary-pit-stop { color: #FFC107; }
+.commentary-overtake { color: #4CAF50; }
+.commentary-race-start { color: #2196F3; font-weight: bold; }
