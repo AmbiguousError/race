@@ -18,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pit Modal
     const pitModal = document.getElementById('pit-modal');
     const tyreChoices = document.getElementById('tyre-choices');
+    
+    // Track Image
+    const trackImage = new Image();
+    trackImage.src = 'assets/track.png'; // Make sure this path is correct!
 
     // --- GAME CONFIGURATION ---
     const TOTAL_LAPS = 50;
@@ -28,21 +32,22 @@ document.addEventListener('DOMContentLoaded', () => {
         "Red Bull": { color: "#0600EF", basePace: 1.03 },
         "Ferrari": { color: "#DC0000", basePace: 1.01 },
         "McLaren": { color: "#FF8700", basePace: 1.00 },
-        // Add more teams
+        "Aston Martin": { color: "#006F62", basePace: 0.99 },
+        "Alpine": { color: "#0090FF", basePace: 0.98 },
     };
     
     const TYRE_COMPOUNDS = {
-        Soft:  { grip: 1.05, degradation: 0.007, color: 'red' },
-        Medium:{ grip: 1.00, degradation: 0.004, color: 'yellow' },
-        Hard:  { grip: 0.95, degradation: 0.002, color: 'white' }
+        Soft:  { grip: 1.05, degradation: 0.0075, color: 'red' },
+        Medium:{ grip: 1.00, degradation: 0.0045, color: 'yellow' },
+        Hard:  { grip: 0.95, degradation: 0.0025, color: 'white' }
     };
 
     const PUSH_LEVELS = {
-        1: { name: "Conserve", paceEffect: 0.95, tyreEffect: 0.5 },
+        1: { name: "Conserve", paceEffect: 0.96, tyreEffect: 0.6 },
         2: { name: "Standard", paceEffect: 0.98, tyreEffect: 0.8 },
         3: { name: "Balanced", paceEffect: 1.00, tyreEffect: 1.0 },
         4: { name: "Pushing",  paceEffect: 1.02, tyreEffect: 1.5 },
-        5: { name: "Attack",   paceEffect: 1.04, tyreEffect: 2.0 },
+        5: { name: "Attack",   paceEffect: 1.04, tyreEffect: 2.2 },
     };
 
     // --- GAME STATE ---
@@ -53,26 +58,24 @@ document.addEventListener('DOMContentLoaded', () => {
         cars: [],
     };
     
-    // --- TRACK DATA (Simple Oval for now) ---
-    // An array of {x, y} points defining the center of the track.
-    const trackPath = [];
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radiusX = canvas.width / 2 - 50; // Horizontal radius
-    const radiusY = canvas.height / 2 - 50; // Vertical radius
-    for (let i = 0; i < 360; i++) {
-        const angle = i * Math.PI / 180;
-        const x = centerX + radiusX * Math.cos(angle);
-        const y = centerY + radiusY * Math.sin(angle);
-        trackPath.push({ x, y });
-    }
+    // --- TRACK DATA (Pre-mapped for the track image) ---
+    const trackPath = [
+        { x: 865, y: 485 }, { x: 865, y: 400 }, { x: 865, y: 300 }, { x: 865, y: 200 },
+        { x: 860, y: 125 }, { x: 835, y: 80  }, { x: 790, y: 55  }, { x: 740, y: 50  },
+        { x: 690, y: 60  }, { x: 655, y: 85  }, { x: 650, y: 150 }, { x: 648, y: 250 },
+        { x: 645, y: 350 }, { x: 640, y: 430 }, { x: 620, y: 465 }, { x: 580, y: 480 },
+        { x: 530, y: 470 }, { x: 490, y: 440 }, { x: 470, y: 390 }, { x: 480, y: 340 },
+        { x: 510, y: 300 }, { x: 535, y: 265 }, { x: 530, y: 220 }, { x: 495, y: 185 },
+        { x: 440, y: 180 }, { x: 380, y: 200 }, { x: 330, y: 240 }, { x: 280, y: 280 },
+        { x: 200, y: 285 }, { x: 150, y: 295 }, { x: 110, y: 325 }, { x: 80,  y: 375 },
+        { x: 75,  y: 435 }, { x: 90,  y: 485 }, { x: 125, y: 525 }, { x: 175, y: 550 },
+        { x: 250, y: 555 }, { x: 350, y: 560 }, { x: 450, y: 565 }, { x: 520, y: 555 },
+        { x: 565, y: 525 }, { x: 630, y: 520 }, { x: 700, y: 515 }, { x: 800, y: 500 },
+    ];
     const TRACK_LENGTH = trackPath.length;
 
     // --- FUNCTIONS ---
 
-    /**
-     * Initializes the team selection screen.
-     */
     function initSetup() {
         for (const teamName in TEAMS) {
             const button = document.createElement('button');
@@ -84,10 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Handles the player selecting a team.
-     * @param {string} teamName - The name of the selected team.
-     */
     function selectTeam(teamName) {
         gameState.playerTeam = teamName;
         setupScreen.classList.add('hidden');
@@ -95,150 +94,114 @@ document.addEventListener('DOMContentLoaded', () => {
         initRace();
     }
     
-    /**
-     * Sets up the initial state of the race.
-     */
     function initRace() {
-        // Create all cars for the race
         gameState.cars = [];
         const teamNames = Object.keys(TEAMS);
-        for (let i = 0; i < CAR_COUNT; i++) {
-            const team = TEAMS[teamNames[i % teamNames.length]];
-            const isPlayer = (i === 0 && TEAMS[gameState.playerTeam]);
-            
-            gameState.cars.push({
-                id: i,
-                isPlayer: isPlayer,
-                team: isPlayer ? TEAMS[gameState.playerTeam] : team,
-                driverName: isPlayer ? "YOU" : `Driver ${i+1}`,
-                progress: TRACK_LENGTH - i * (TRACK_LENGTH / CAR_COUNT), // Staggered start
-                lap: 1,
-                speed: 0,
-                tyre: { ...TYRE_COMPOUNDS.Medium, wear: 100 },
-                pushLevel: 3,
-                pitting: false,
-                pitRequest: false,
-                pitStopTime: 0,
-            });
+        const playerTeamName = gameState.playerTeam;
+        
+        // Create Player Car first
+        gameState.cars.push(createCar(0, playerTeamName, true));
+
+        // Create AI Cars
+        let teamIndex = 0;
+        for (let i = 1; i < CAR_COUNT; i++) {
+            if (teamNames[teamIndex] === playerTeamName) {
+                teamIndex++; // Skip player's team for AI
+            }
+            const teamName = teamNames[teamIndex % teamNames.length];
+            gameState.cars.push(createCar(i, teamName, false));
+            teamIndex++;
         }
         
         gameState.raceActive = true;
-        gameLoop(); // Start the race
+        gameLoop();
     }
 
-    /**
-     * The main game loop, powered by requestAnimationFrame for smooth animation.
-     */
+    function createCar(id, teamName, isPlayer) {
+        return {
+            id: id,
+            isPlayer: isPlayer,
+            team: TEAMS[teamName],
+            driverName: isPlayer ? "YOU" : `Driver ${id+1}`,
+            progress: TRACK_LENGTH - id * (TRACK_LENGTH / CAR_COUNT) * 0.5, // Tighter start
+            lap: 1,
+            speed: 0,
+            tyre: { ...TYRE_COMPOUNDS.Medium, wear: 100, compoundName: 'Medium' },
+            pushLevel: 3,
+            pitting: false,
+            pitRequest: false,
+            pitStopTime: 0,
+        };
+    }
+
     function gameLoop() {
         if (!gameState.raceActive) return;
-
         updateState();
         render();
-
         requestAnimationFrame(gameLoop);
     }
     
-    /**
-     * Updates the state of all cars and game variables for a single frame.
-     */
     function updateState() {
         gameState.cars.forEach(car => {
             if (car.pitting) {
-                car.pitStopTime -= 1 / 60; // Assuming 60 FPS
+                car.pitStopTime -= 1 / 60; // Assumes 60 FPS
                 if (car.pitStopTime <= 0) {
                     car.pitting = false;
-                    // Exit the pit lane
                 }
-                return; // Car is in pits, no movement
+                return; // Car is in pits, no movement or logic
             }
 
-            // AI Logic
+            // AI Logic for pitting
             if (!car.isPlayer) {
-                // Simple AI: Pit if tyres are very worn
-                if (car.tyre.wear < 20 && !car.pitRequest) {
+                if ((car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40)) && !car.pitRequest) {
                     car.pitRequest = true;
                 }
             }
 
-            // Check for entering pit lane
-            // The pit entry is at the "end" of the lap (progress ~ TRACK_LENGTH)
-            if (car.pitRequest && car.progress >= TRACK_LENGTH - 10) {
+            // Check for entering pit lane (at the end of the lap)
+            if (car.pitRequest && car.progress >= TRACK_LENGTH - 10 && car.progress < TRACK_LENGTH) {
                 car.pitting = true;
                 car.pitRequest = false;
-                car.progress = 0; // Reset progress for pit lane time
                 
-                // Simulate pit stop logic
                 if (car.isPlayer) {
-                    // Player has to choose tyres
                     pitModal.classList.remove('hidden');
                     gameState.raceActive = false; // Pause game for player choice
                 } else {
-                    // AI chooses new tyres (e.g., Medium) and pit time
-                    car.tyre = { ...TYRE_COMPOUNDS.Medium, wear: 100 };
-                    car.pitStopTime = 3 + Math.random(); // 3-4 seconds
+                    const newTyre = car.tyre.wear < 15 ? 'Hard' : 'Medium'; // Simple AI tyre choice
+                    car.tyre = { ...TYRE_COMPOUNDS[newTyre], wear: 100, compoundName: newTyre };
+                    car.pitStopTime = 3 + Math.random();
                 }
             }
 
             // Calculate Speed: BasePace * TyreGrip * PushFactor * TyreWearFactor
             const push = PUSH_LEVELS[car.pushLevel];
-            const wearFactor = 0.8 + (car.tyre.wear / 100) * 0.2; // Performance drops at low wear
-            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 3; // Multiplier for visual speed
+            const wearFactor = 0.85 + (car.tyre.wear / 100) * 0.15;
+            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.8; // Speed multiplier
             car.speed = speed;
 
-            // Update progress
+            // Update progress and tyre wear
             car.progress += car.speed;
-
-            // Update tyre wear
             const wearRate = car.tyre.degradation * push.tyreEffect;
             car.tyre.wear -= wearRate;
             if (car.tyre.wear < 0) car.tyre.wear = 0;
 
-            // Check for lap completion
+            // Lap completion
             if (car.progress >= TRACK_LENGTH) {
                 car.progress %= TRACK_LENGTH;
                 car.lap++;
-                if (car.lap > TOTAL_LAPS) {
-                    // Race finished for this car
-                }
+                // Race finish condition could go here
             }
         });
 
-        // Sort cars by lap and progress to determine positions
+        // Sort cars by position
         gameState.cars.sort((a, b) => (b.lap - a.lap) || (b.progress - a.progress));
         updateUI();
     }
 
-    /**
-     * Renders the current game state onto the canvas and updates UI text.
-     */
     function render() {
-        // Clear canvas
-        ctx.fillStyle = '#1a472a'; // Grass
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(trackImage, 0, 0, canvas.width, canvas.height);
         
-        // Draw track
-        ctx.strokeStyle = '#555';
-        ctx.lineWidth = 20;
-        ctx.beginPath();
-        ctx.moveTo(trackPath[0].x, trackPath[0].y);
-        for (let i = 1; i < trackPath.length; i++) {
-            ctx.lineTo(trackPath[i].x, trackPath[i].y);
-        }
-        ctx.closePath();
-        ctx.stroke();
-
-        // Draw start/finish line
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        const p1 = trackPath[trackPath.length - 1];
-        const p2 = trackPath[trackPath.length - 2];
-        const angle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
-        ctx.moveTo(p1.x - 20 * Math.sin(angle), p1.y + 20 * Math.cos(angle));
-        ctx.lineTo(p1.x + 20 * Math.sin(angle), p1.y - 20 * Math.cos(angle));
-        ctx.stroke();
-        
-        // Draw cars
         gameState.cars.forEach(car => {
             if (car.pitting) return; // Don't draw cars in the pits
 
@@ -249,15 +212,13 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, 6, 0, 2 * Math.PI);
             ctx.fill();
+            
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 1;
             ctx.stroke();
         });
     }
 
-    /**
-     * Updates all the text elements in the UI panel.
-     */
     function updateUI() {
         const playerCar = gameState.cars.find(c => c.isPlayer);
         if (!playerCar) return;
@@ -266,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         lapCounter.textContent = `${playerCar.lap} / ${TOTAL_LAPS}`;
         playerPosition.textContent = `${playerRank} / ${CAR_COUNT}`;
-        playerTyreCompound.textContent = Object.keys(TYRE_COMPOUNDS).find(key => TYRE_COMPOUNDS[key].color === playerCar.tyre.color);
+        playerTyreCompound.textContent = playerCar.tyre.compoundName;
         playerTyreWear.textContent = `${playerCar.tyre.wear.toFixed(1)}%`;
         playerPushText.textContent = PUSH_LEVELS[playerCar.pushLevel].name;
 
@@ -278,7 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS ---
     
-    // Player Push Level Change
     pushSlider.addEventListener('input', (e) => {
         const playerCar = gameState.cars.find(c => c.isPlayer);
         if (playerCar) {
@@ -287,37 +247,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Player requests a pit stop
     pitButton.addEventListener('click', () => {
         const playerCar = gameState.cars.find(c => c.isPlayer);
-        if (playerCar && !playerCar.pitRequest) {
+        if (playerCar && !playerCar.pitRequest && !playerCar.pitting) {
             playerCar.pitRequest = true;
             pitButton.textContent = "Pit Stop Requested";
             pitButton.disabled = true;
         }
     });
 
-    // Player chooses tyres in the pit modal
     tyreChoices.addEventListener('click', (e) => {
         if (e.target.classList.contains('tyre-option')) {
             const chosenTyre = e.target.dataset.tyre;
             const playerCar = gameState.cars.find(c => c.isPlayer);
             
-            // Apply new tyres
-            playerCar.tyre = { ...TYRE_COMPOUNDS[chosenTyre], wear: 100 };
+            playerCar.tyre = { ...TYRE_COMPOUNDS[chosenTyre], wear: 100, compoundName: chosenTyre };
             playerCar.pitStopTime = 2.5 + Math.random() * 0.5; // Player team is fast!
             
-            // Reset button and close modal
             pitButton.textContent = "Request Pit Stop";
             pitButton.disabled = false;
             pitModal.classList.add('hidden');
             
-            // Resume the game
             gameState.raceActive = true;
             gameLoop();
         }
     });
 
-    // --- START ---
-    initSetup();
+    // --- START THE SIMULATION ---
+    trackImage.onload = () => {
+        initSetup();
+    };
 });
