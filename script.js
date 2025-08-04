@@ -5,14 +5,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const teamSelectionContainer = document.getElementById('team-selection');
     const tyreSelectionView = document.getElementById('tyre-selection-view');
     const startingTyreChoices = document.getElementById('starting-tyre-choices');
-    
+    const audioToggleButton = document.getElementById('audio-toggle-button');
     const raceScreen = document.getElementById('race-screen');
     const canvas = document.getElementById('race-track');
     const ctx = canvas.getContext('2d');
     const standingsTableBody = document.querySelector("#standings-table tbody");
     const pitStopModal = new bootstrap.Modal(document.getElementById('pit-stop-modal'));
-
-    // UI Panels
     const lapCounter = document.getElementById('lap-counter');
     const playerPosition = document.getElementById('player-position');
     const playerTyreCompound = document.getElementById('player-tyre-compound');
@@ -21,8 +19,78 @@ document.addEventListener('DOMContentLoaded', () => {
     const pushSlider = document.getElementById('push-slider');
     const pitButton = document.getElementById('pit-button');
     const pitTyreChoices = document.getElementById('pit-tyre-choices');
+
+    // =======================================================================
+    // --- WEB AUDIO MUSIC ENGINE ---
+    // =======================================================================
+    let audioCtx;
+    let masterGain;
+    let isAudioInitialized = false;
+    let isMusicPlaying = false;
     
-    // --- CONFIGURATION & STATE ---
+    const NOTE_FREQUENCIES = {
+        'G3': 196.00, 'A3': 220.00, 'Asharp3': 233.08, 
+        'C4': 261.63, 'Dsharp4': 311.13, 'G4': 392.00, 
+        'Gsharp4': 415.30, 'Asharp4': 466.16,
+    };
+
+    const BPM = 124; 
+    const BEAT_DURATION = 60 / BPM;
+
+    const MELODY = [
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 },
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Asharp4', duration: 0.25 },
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 },
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Gsharp4', duration: 0.25 },
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 },
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Asharp4', duration: 0.25 },
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 },
+        { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Gsharp4', duration: 0.25 },
+    ];
+
+    function initAudio() {
+        if (isAudioInitialized) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.connect(audioCtx.destination);
+        masterGain.gain.value = 1;
+        isAudioInitialized = true;
+    }
+
+    function playNote(note, startTime, duration) {
+        if (!audioCtx) return;
+        const frequency = NOTE_FREQUENCIES[note];
+        if (!frequency) return;
+
+        const oscillator = audioCtx.createOscillator();
+        const noteGain = audioCtx.createGain();
+        oscillator.connect(noteGain);
+        noteGain.connect(masterGain);
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(frequency, startTime);
+        noteGain.gain.setValueAtTime(0, startTime);
+        noteGain.gain.linearRampToValueAtTime(0.5, startTime + 0.01);
+        noteGain.gain.linearRampToValueAtTime(0, startTime + duration);
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration);
+    }
+
+    function playSong() {
+        if (!isAudioInitialized || !isMusicPlaying) return;
+        let currentTime = audioCtx.currentTime;
+        MELODY.forEach(noteInfo => {
+            const noteDuration = noteInfo.duration * BEAT_DURATION;
+            playNote(noteInfo.note, currentTime, noteDuration);
+            currentTime += noteDuration;
+        });
+        const songDuration = currentTime - audioCtx.currentTime;
+        setTimeout(playSong, songDuration * 1000);
+    }
+
+    // =======================================================================
+    // --- SIMULATOR CODE ---
+    // =======================================================================
+    
     const TOTAL_LAPS = 50, CAR_COUNT = 20, FPS = 60;
     const ORIGINAL_CANVAS_WIDTH = 1000;
     let scaleFactor = 1;
@@ -35,14 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
         "McLaren": { color: "#FF8700", basePace: 1.00, drivers: ["Norris", "Piastri"] },
         "Aston Martin": { color: "#006F62", basePace: 0.99, drivers: ["Alonso", "Stroll"] },
         "Alpine": { color: "#0090FF", basePace: 0.98, drivers: ["Gasly", "Ocon"] },
-        // Simplified for other teams
         "Williams": { color: "#005AFF", basePace: 0.95, drivers: ["Albon", "Sargeant"]},
         "Haas": { color: "#FFFFFF", basePace: 0.94, drivers: ["Magnussen", "Hulkenberg"]},
         "Sauber": { color: "#00E000", basePace: 0.96, drivers: ["Bottas", "Zhou"]},
         "RB": { color: "#003060", basePace: 0.97, drivers: ["Ricciardo", "Tsunoda"]},
     };
     
-    // INCREASED & DIFFERENTIATED TYRE WEAR
     const TYRE_COMPOUNDS = {
         Soft:  { grip: 1.05, degradation: 0.0190, color: 'red' },
         Medium:{ grip: 1.00, degradation: 0.0105, color: 'yellow' },
@@ -73,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const TRACK_LENGTH = trackPath.length;
 
-    // --- CORE FUNCTIONS ---
     function initSetup() {
         for (const teamName in TEAMS) {
             const button = document.createElement('button');
@@ -114,12 +179,10 @@ document.addEventListener('DOMContentLoaded', () => {
             TEAMS[team].drivers.forEach(driver => driverPool.push({ team, driver }));
         }
         
-        // Create Player Car
         const playerDriver = TEAMS[selectedTeamName].drivers[0];
         gameState.cars.push(createCar(0, selectedTeamName, playerDriver, true, playerTyre));
         driverPool = driverPool.filter(d => d.driver !== playerDriver);
 
-        // Create AI Cars
         for (let i = 1; i < CAR_COUNT; i++) {
             const driverInfo = driverPool[i % driverPool.length];
             const aiTyres = ['Soft', 'Medium', 'Hard'];
@@ -151,26 +214,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateState() {
-        // This function's internal logic is the same as the previous full version
-        // Omitted here only for brevity in this specific response view.
-        // It should be copied from the previous full script provided.
         gameState.cars.forEach(car => {
             if (car.pitting) {
                 car.pitStopTime -= 1 / FPS;
                 if (car.pitStopTime <= 0) car.pitting = false;
                 return;
             }
-
             if (!car.isPlayer) {
                 if ((car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40)) && !car.pitRequest) {
                     car.pitRequest = true;
                 }
             }
-
             if (car.pitRequest && car.progress >= TRACK_LENGTH - 10 && car.progress < TRACK_LENGTH) {
                 car.pitting = true;
                 car.pitRequest = false;
-                
                 if (car.isPlayer) {
                     pitStopModal.show();
                     gameState.raceActive = false;
@@ -180,36 +237,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     car.pitStopTime = 3 + Math.random();
                 }
             }
-            
             const push = PUSH_LEVELS[car.pushLevel];
             const wearFactor = 0.85 + (car.tyre.wear / 100) * 0.15;
             const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.25;
             car.speed = speed;
-
             car.progress += car.speed;
             const wearRate = car.tyre.degradation * push.tyreEffect;
             car.tyre.wear -= wearRate;
             if (car.tyre.wear < 0) car.tyre.wear = 0;
-
             if (car.progress >= TRACK_LENGTH) {
                 car.progress %= TRACK_LENGTH;
                 car.lap++;
             }
             car.totalProgress = (car.lap -1) * TRACK_LENGTH + car.progress;
         });
-        
         gameState.cars.sort((a, b) => b.totalProgress - a.totalProgress);
         updateUI();
     }
 
     function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw track from coordinates
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-
-        // Kerbing (wider line underneath)
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 24 * scaleFactor;
         ctx.beginPath();
@@ -217,27 +266,20 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let i = 1; i < trackPath.length; i++) ctx.lineTo(trackPath[i].x * scaleFactor, trackPath[i].y * scaleFactor);
         ctx.closePath();
         ctx.stroke();
-
-        // Tarmac
         ctx.strokeStyle = '#555555';
         ctx.lineWidth = 20 * scaleFactor;
-        ctx.stroke(); // Stroke the same path again on top
-
-        // Draw Cars
+        ctx.stroke();
         gameState.cars.forEach(car => {
             if (car.pitting) return;
             const posIndex = Math.floor(car.progress) % TRACK_LENGTH;
             const pos = trackPath[posIndex];
-            
             const carX = pos.x * scaleFactor;
             const carY = pos.y * scaleFactor;
             const carRadius = 6 * scaleFactor;
-
             ctx.fillStyle = car.team.color;
             ctx.beginPath();
             ctx.arc(carX, carY, carRadius, 0, 2 * Math.PI);
             ctx.fill();
-            
             ctx.strokeStyle = 'black';
             ctx.lineWidth = Math.max(1, 1 * scaleFactor);
             ctx.stroke();
@@ -267,10 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const gapInSeconds = car.speed > 0 ? (progressDiff / car.speed) / FPS : 999;
                 gapText = `+${gapInSeconds.toFixed(2)}s`;
             }
-            
             const tyreColor = TYRE_COMPOUNDS[car.tyre.compoundName]?.color || 'gray';
             const playerClass = car.isPlayer ? 'player-row' : '';
-
             tableHTML += `<tr class="${playerClass}">
                 <td>${index + 1}</td>
                 <td>${car.driverName.substring(0, 10)}</td>
@@ -283,8 +323,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- EVENT LISTENERS ---
+    audioToggleButton.addEventListener('click', () => {
+        initAudio();
+        isMusicPlaying = !isMusicPlaying;
+        if (isMusicPlaying) {
+            audioCtx.resume();
+            playSong();
+            audioToggleButton.textContent = '🎵 Mute';
+            masterGain.gain.setValueAtTime(1, audioCtx.currentTime);
+        } else {
+            masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            audioToggleButton.textContent = '🎵 Unmute';
+        }
+    });
+
     startingTyreChoices.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
+            if(isAudioInitialized && isMusicPlaying) {
+                masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                isMusicPlaying = false;
+                audioToggleButton.textContent = '🎵 Play Music';
+                audioToggleButton.disabled = true;
+            }
             startRace(e.target.dataset.tyre);
         }
     });
@@ -307,14 +367,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.tagName === 'BUTTON') {
             const chosenTyre = e.target.dataset.tyre;
             const playerCar = gameState.cars.find(c => c.isPlayer);
-            
             playerCar.tyre = { ...TYRE_COMPOUNDS[chosenTyre], wear: 100, compoundName: chosenTyre };
             playerCar.pitStopTime = 2.5 + Math.random() * 0.5;
-            
             pitButton.textContent = "Request Pit Stop";
             pitButton.disabled = false;
             pitStopModal.hide();
-            
             gameState.raceActive = true;
             gameLoop();
         }
