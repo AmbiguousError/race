@@ -111,12 +111,11 @@ document.addEventListener('DOMContentLoaded', () => {
         "RB": { color: "#003060", basePace: 0.965, drivers: ["Tsunoda", "Lawson"]},
     };
     
-        const TYRE_COMPOUNDS = {
+    const TYRE_COMPOUNDS = {
         Soft:  { grip: 1.06, degradation: 0.0190, color: 'red' },
         Medium:{ grip: 1.00, degradation: 0.0105, color: 'yellow' },
         Hard:  { grip: 0.92, degradation: 0.0060, color: 'white' }
     };
-
 
     const PUSH_LEVELS = {
         1: { name: "Conserve", paceEffect: 0.96, tyreEffect: 0.6 },
@@ -242,12 +241,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const newTyre = car.tyre.wear < 15 ? 'Hard' : 'Medium';
                     car.tyre = { ...TYRE_COMPOUNDS[newTyre], wear: 100, compoundName: newTyre };
-                    car.pitStopTime = 3 + Math.random();
+                    car.pitStopTime = 20 + Math.random() * 2;
                 }
             }
             const push = PUSH_LEVELS[car.pushLevel];
             const wearFactor = 0.85 + (car.tyre.wear / 100) * 0.15;
-            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.15;
+            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.012;
             car.speed = speed;
             car.progress += car.speed;
             const wearRate = car.tyre.degradation * push.tyreEffect;
@@ -263,9 +262,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 car.lapStartTime = gameState.raceTime;
 
-                const leader = gameState.cars.find(c => c.isPlayer) || gameState.cars[0];
+                const leader = gameState.cars[0];
                 if (leader.lap > TOTAL_LAPS) {
-                    endRace(gameState.cars[0]);
+                    endRace(leader);
                 }
             }
             car.totalProgress = (car.lap - 1) * TRACK_LENGTH + car.progress;
@@ -397,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const chosenTyre = e.target.dataset.tyre;
             const playerCar = gameState.cars.find(c => c.isPlayer);
             playerCar.tyre = { ...TYRE_COMPOUNDS[chosenTyre], wear: 100, compoundName: chosenTyre };
-            playerCar.pitStopTime = 2.5 + Math.random() * 0.5;
+            playerCar.pitStopTime = 19.5 + Math.random();
             pitButton.textContent = "Request Pit Stop";
             pitButton.disabled = false;
             pitStopModal.hide();
