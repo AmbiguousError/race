@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!playerCar) return;
 
         const playerRank = gameState.cars.findIndex(c => c.isPlayer) + 1;
-
+        
         playerDriverNameEl.textContent = playerCar.driverName;
         playerTeamNameEl.textContent = playerCar.teamName;
         lapCounter.textContent = `${playerCar.lap > TOTAL_LAPS ? TOTAL_LAPS : playerCar.lap} / ${TOTAL_LAPS}`;
