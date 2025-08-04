@@ -65,7 +65,7 @@ body {
 }
 
 #ui-panel {
-    width: 280px;
+    width: 320px; /* Increased width for standings */
     background-color: #222;
     padding: 20px;
     border-radius: 10px;
@@ -84,7 +84,7 @@ body {
 #pit-button {
     width: 100%;
     padding: 15px;
-    margin-top: 20px;
+    margin-top: 10px;
     font-size: 16px;
     background-color: #b00;
     color: white;
@@ -94,6 +94,46 @@ body {
 }
 #pit-button:hover { background-color: #d00; }
 #pit-button:disabled { background-color: #555; cursor: not-allowed; }
+
+/* Standings Table */
+#standings-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+#standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+#standings-table th, #standings-table td {
+    padding: 4px;
+    text-align: left;
+    border-bottom: 1px solid #444;
+}
+
+#standings-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #aaa;
+}
+
+.player-row {
+    background-color: #006F62; /* Highlight player's team color */
+    font-weight: bold;
+}
+
+/* Tyre compound visual indicator */
+.tyre-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    box-shadow: 0 0 3px black;
+}
 
 /* Modal for Pit Stop */
 .modal {
