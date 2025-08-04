@@ -111,11 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
         "RB": { color: "#003060", basePace: 0.965, drivers: ["Tsunoda", "Lawson"]},
     };
     
-    const TYRE_COMPOUNDS = {
-        Soft:  { grip: 1.05, degradation: 0.0190, color: 'red' },
+        const TYRE_COMPOUNDS = {
+        Soft:  { grip: 1.06, degradation: 0.0190, color: 'red' },
         Medium:{ grip: 1.00, degradation: 0.0105, color: 'yellow' },
-        Hard:  { grip: 0.95, degradation: 0.0060, color: 'white' }
+        Hard:  { grip: 0.92, degradation: 0.0060, color: 'white' }
     };
+
 
     const PUSH_LEVELS = {
         1: { name: "Conserve", paceEffect: 0.96, tyreEffect: 0.6 },
