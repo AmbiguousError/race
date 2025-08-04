@@ -10,17 +10,20 @@ body {
 #race-container {
     position: relative;
     width: 100%;
-    background-color: #1a472a; /* Grass color */
-    border-radius: .375rem; /* Bootstrap's default border-radius */
+    /* Remove background-color from here if it exists */
+    border-radius: .375rem; 
     overflow: hidden;
+    /* This line forces the container to respect the canvas's aspect ratio */
+    line-height: 0; 
 }
 
-/* Make canvas responsive and maintain aspect ratio */
 #race-track {
     display: block;
     width: 100%;
     height: auto;
+    background-color: #1a472a; /* Grass color here */
 }
+
 
 /* Standings Table styles */
 #standings-container {
