@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas.getContext('2d');
     const standingsTableBody = document.querySelector("#standings-table tbody");
     const pitStopModal = new bootstrap.Modal(document.getElementById('pit-stop-modal'));
+    const raceFinishModal = new bootstrap.Modal(document.getElementById('race-finish-modal'));
+    const winnerNameEl = document.getElementById('winner-name');
     const lapCounter = document.getElementById('lap-counter');
     const playerPosition = document.getElementById('player-position');
     const playerTyreCompound = document.getElementById('player-tyre-compound');
@@ -97,16 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedTeamName = '';
 
     const TEAMS = {
-        "Mercedes": { color: "#00D2BE", basePace: 1.02, drivers: ["Hamilton", "Russell"] },
+        "Ferrari": { color: "#DC0000", basePace: 1.02, drivers: ["Leclerc", "Hamilton"] },
         "Red Bull": { color: "#0600EF", basePace: 1.03, drivers: ["Verstappen", "Perez"] },
-        "Ferrari": { color: "#DC0000", basePace: 1.01, drivers: ["Leclerc", "Sainz"] },
-        "McLaren": { color: "#FF8700", basePace: 1.00, drivers: ["Norris", "Piastri"] },
+        "McLaren": { color: "#FF8700", basePace: 1.015, drivers: ["Norris", "Piastri"] },
+        "Mercedes": { color: "#00D2BE", basePace: 1.00, drivers: ["Russell", "Antonelli"] },
         "Aston Martin": { color: "#006F62", basePace: 0.99, drivers: ["Alonso", "Stroll"] },
-        "Alpine": { color: "#0090FF", basePace: 0.98, drivers: ["Gasly", "Ocon"] },
-        "Williams": { color: "#005AFF", basePace: 0.95, drivers: ["Albon", "Sargeant"]},
-        "Haas": { color: "#FFFFFF", basePace: 0.94, drivers: ["Magnussen", "Hulkenberg"]},
-        "Sauber": { color: "#00E000", basePace: 0.96, drivers: ["Bottas", "Zhou"]},
-        "RB": { color: "#003060", basePace: 0.97, drivers: ["Ricciardo", "Tsunoda"]},
+        "Audi": { color: "#D90000", basePace: 0.97, drivers: ["Hulkenberg", "Sainz"] },
+        "Alpine": { color: "#0090FF", basePace: 0.96, drivers: ["Gasly", "Doohan"] },
+        "Williams": { color: "#005AFF", basePace: 0.95, drivers: ["Albon", "Bottas"] },
+        "Haas": { color: "#BDBDBD", basePace: 0.94, drivers: ["Bearman", "Ocon"] },
+        "RB": { color: "#003060", basePace: 0.965, drivers: ["Tsunoda", "Lawson"]},
     };
     
     const TYRE_COMPOUNDS = {
@@ -123,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         5: { name: "Attack",   paceEffect: 1.04, tyreEffect: 2.2 },
     };
 
-    let gameState = { raceActive: false, cars: [] };
+    let gameState = { raceActive: false, raceFinished: false, raceTime: 0, cars: [] };
     
     const trackPath = [
         {x:864, y:500}, {x:864, y:409}, {x:864, y:318}, {x:864, y:227}, {x:864, y:136}, 
@@ -203,17 +205,22 @@ document.addEventListener('DOMContentLoaded', () => {
             tyre: { ...TYRE_COMPOUNDS[startingTyre], wear: 100, compoundName: startingTyre },
             pitting: false, pitRequest: false, pitStopTime: 0,
             totalProgress: 0,
+            lapStartTime: 0,
+            lastLapTime: 0,
         };
     }
 
     function gameLoop() {
         if (!gameState.raceActive) return;
+        gameState.raceTime += 1 / FPS;
         updateState();
         render();
         requestAnimationFrame(gameLoop);
     }
     
     function updateState() {
+        if (gameState.raceFinished) return;
+
         gameState.cars.forEach(car => {
             if (car.pitting) {
                 car.pitStopTime -= 1 / FPS;
@@ -239,20 +246,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const push = PUSH_LEVELS[car.pushLevel];
             const wearFactor = 0.85 + (car.tyre.wear / 100) * 0.15;
-            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.25;
+            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.15;
             car.speed = speed;
             car.progress += car.speed;
             const wearRate = car.tyre.degradation * push.tyreEffect;
             car.tyre.wear -= wearRate;
             if (car.tyre.wear < 0) car.tyre.wear = 0;
+
             if (car.progress >= TRACK_LENGTH) {
                 car.progress %= TRACK_LENGTH;
                 car.lap++;
+
+                if (car.lap > 1) {
+                    car.lastLapTime = gameState.raceTime - car.lapStartTime;
+                }
+                car.lapStartTime = gameState.raceTime;
+
+                const leader = gameState.cars.find(c => c.isPlayer) || gameState.cars[0];
+                if (leader.lap > TOTAL_LAPS) {
+                    endRace(gameState.cars[0]);
+                }
             }
-            car.totalProgress = (car.lap -1) * TRACK_LENGTH + car.progress;
+            car.totalProgress = (car.lap - 1) * TRACK_LENGTH + car.progress;
         });
         gameState.cars.sort((a, b) => b.totalProgress - a.totalProgress);
         updateUI();
+    }
+
+    function endRace(winner) {
+        if (gameState.raceFinished) return;
+        gameState.raceActive = false;
+        gameState.raceFinished = true;
+        winnerNameEl.textContent = winner.driverName;
+        raceFinishModal.show();
     }
 
     function render() {
@@ -291,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!playerCar) return;
 
         const playerRank = gameState.cars.findIndex(c => c.isPlayer) + 1;
-        lapCounter.textContent = `${playerCar.lap} / ${TOTAL_LAPS}`;
+        lapCounter.textContent = `${playerCar.lap > TOTAL_LAPS ? TOTAL_LAPS : playerCar.lap} / ${TOTAL_LAPS}`;
         playerPosition.textContent = `${playerRank} / ${CAR_COUNT}`;
         playerTyreCompound.textContent = playerCar.tyre.compoundName;
         playerTyreWear.textContent = `${playerCar.tyre.wear.toFixed(1)}%`;
@@ -309,6 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const gapInSeconds = car.speed > 0 ? (progressDiff / car.speed) / FPS : 999;
                 gapText = `+${gapInSeconds.toFixed(2)}s`;
             }
+            const lastLapText = car.lastLapTime > 0 ? `${car.lastLapTime.toFixed(3)}s` : "-";
             const tyreColor = TYRE_COMPOUNDS[car.tyre.compoundName]?.color || 'gray';
             const playerClass = car.isPlayer ? 'player-row' : '';
             tableHTML += `<tr class="${playerClass}">
@@ -316,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${car.driverName.substring(0, 10)}</td>
                 <td>${car.teamName}</td>
                 <td>${gapText}</td>
+                <td>${lastLapText}</td>
                 <td><span class="tyre-indicator" style="background-color:${tyreColor};"></span>${car.tyre.compoundName[0]}</td>
             </tr>`;
         });
