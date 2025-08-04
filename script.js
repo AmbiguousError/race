@@ -20,16 +20,34 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- CONFIGURATION & STATE ---
     const trackImage = new Image();
-    trackImage.src = 'assets/track.jpg'; // Using .jpg as requested
+    trackImage.src = 'assets/track.jpg';
 
     const TOTAL_LAPS = 50, CAR_COUNT = 20, FPS = 60;
     const ORIGINAL_CANVAS_WIDTH = 1000; // The width the coordinates were mapped to
     let scaleFactor = 1;
 
-    // ... (TEAMS, TYRE_COMPOUNDS, PUSH_LEVELS objects remain the same as before)
-    const TEAMS = { /* Omitted for brevity, same as before */ };
-    const TYRE_COMPOUNDS = { /* Omitted for brevity, same as before */ };
-    const PUSH_LEVELS = { /* Omitted for brevity, same as before */ };
+    const TEAMS = {
+        "Mercedes": { color: "#00D2BE", basePace: 1.02 },
+        "Red Bull": { color: "#0600EF", basePace: 1.03 },
+        "Ferrari": { color: "#DC0000", basePace: 1.01 },
+        "McLaren": { color: "#FF8700", basePace: 1.00 },
+        "Aston Martin": { color: "#006F62", basePace: 0.99 },
+        "Alpine": { color: "#0090FF", basePace: 0.98 },
+    };
+    
+    const TYRE_COMPOUNDS = {
+        Soft:  { grip: 1.05, degradation: 0.0075, color: 'red' },
+        Medium:{ grip: 1.00, degradation: 0.0045, color: 'yellow' },
+        Hard:  { grip: 0.95, degradation: 0.0025, color: 'white' }
+    };
+
+    const PUSH_LEVELS = {
+        1: { name: "Conserve", paceEffect: 0.96, tyreEffect: 0.6 },
+        2: { name: "Standard", paceEffect: 0.98, tyreEffect: 0.8 },
+        3: { name: "Balanced", paceEffect: 1.00, tyreEffect: 1.0 },
+        4: { name: "Pushing",  paceEffect: 1.02, tyreEffect: 1.5 },
+        5: { name: "Attack",   paceEffect: 1.04, tyreEffect: 2.2 },
+    };
 
     let gameState = { raceActive: false, playerTeam: null, cars: [] };
     
@@ -49,6 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const TRACK_LENGTH = trackPath.length;
 
     // --- CORE FUNCTIONS ---
+    function initSetup() {
+        for (const teamName in TEAMS) {
+            const button = document.createElement('button');
+            button.className = 'btn btn-outline-light';
+            button.innerText = teamName;
+            button.style.setProperty('--bs-btn-border-color', TEAMS[teamName].color);
+            button.style.setProperty('--bs-btn-hover-bg', TEAMS[teamName].color);
+            button.addEventListener('click', () => selectTeam(teamName));
+            teamSelectionContainer.appendChild(button);
+        }
+    }
 
     function resizeCanvas() {
         const container = document.getElementById('race-container');
@@ -68,10 +97,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initRace() {
-        // ... (initRace and createCar functions are the same as before)
-        // Omitted for brevity
+        gameState.cars = [];
+        const teamNames = Object.keys(TEAMS);
+        const playerTeamName = gameState.playerTeam;
+        
+        gameState.cars.push(createCar(0, playerTeamName, true));
+
+        let teamIndex = 0;
+        for (let i = 1; i < CAR_COUNT; i++) {
+            if (teamNames[teamIndex] === playerTeamName) teamIndex++;
+            const teamName = teamNames[teamIndex % teamNames.length];
+            gameState.cars.push(createCar(i, teamName, false));
+            teamIndex++;
+        }
+        
+        gameState.raceActive = true;
+        gameLoop();
     }
     
+    function createCar(id, teamName, isPlayer) {
+        return {
+            id: id,
+            isPlayer: isPlayer,
+            team: TEAMS[teamName],
+            driverName: isPlayer ? "YOU" : `Driver ${id+1}`,
+            progress: TRACK_LENGTH - id * (TRACK_LENGTH / CAR_COUNT) * 0.5,
+            lap: 1,
+            speed: 0,
+            tyre: { ...TYRE_COMPOUNDS.Medium, wear: 100, compoundName: 'Medium' },
+            pushLevel: 3,
+            pitting: false, pitRequest: false, pitStopTime: 0,
+            totalProgress: 0, // Used for gap calculation
+        };
+    }
+
     function gameLoop() {
         if (!gameState.raceActive) return;
         updateState();
@@ -87,13 +146,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // --- Pit logic is the same, but uses the new Bootstrap modal ---
+            if (!car.isPlayer) {
+                if ((car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40)) && !car.pitRequest) {
+                    car.pitRequest = true;
+                }
+            }
+
             if (car.pitRequest && car.progress >= TRACK_LENGTH - 10 && car.progress < TRACK_LENGTH) {
                 car.pitting = true;
                 car.pitRequest = false;
                 
                 if (car.isPlayer) {
-                    pitStopModal.show(); // Use Bootstrap API
+                    pitStopModal.show();
                     gameState.raceActive = false;
                 } else {
                     const newTyre = car.tyre.wear < 15 ? 'Hard' : 'Medium';
@@ -102,14 +166,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // --- SLOWED DOWN SPEED CALCULATION ---
             const push = PUSH_LEVELS[car.pushLevel];
             const wearFactor = 0.85 + (car.tyre.wear / 100) * 0.15;
-            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.25; // SLOWER
+            const speed = car.team.basePace * car.tyre.grip * push.paceEffect * wearFactor * 0.25; // SLOWED DOWN
             car.speed = speed;
 
-            // ... (rest of the update logic is the same)
-            // Omitted for brevity
+            car.progress += car.speed;
+            const wearRate = car.tyre.degradation * push.tyreEffect;
+            car.tyre.wear -= wearRate;
+            if (car.tyre.wear < 0) car.tyre.wear = 0;
+
+            if (car.progress >= TRACK_LENGTH) {
+                car.progress %= TRACK_LENGTH;
+                car.lap++;
+            }
+            car.totalProgress = (car.lap -1) * TRACK_LENGTH + car.progress;
         });
         
         gameState.cars.sort((a, b) => b.totalProgress - a.totalProgress);
@@ -117,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function render() {
-        // Use the scaled width and height
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(trackImage, 0, 0, canvas.width, canvas.height);
         
@@ -126,7 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const posIndex = Math.floor(car.progress) % TRACK_LENGTH;
             const pos = trackPath[posIndex];
             
-            // Apply scaleFactor to coordinates and car size
             const carX = pos.x * scaleFactor;
             const carY = pos.y * scaleFactor;
             const carRadius = 6 * scaleFactor;
@@ -137,19 +206,68 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fill();
             
             ctx.strokeStyle = 'black';
-            ctx.lineWidth = 1 * scaleFactor;
+            ctx.lineWidth = Math.max(1, 1 * scaleFactor);
             ctx.stroke();
         });
     }
 
     function updateUI() {
-        // ... (This function is the same as the previous version, no changes needed)
-        // Omitted for brevity
+        const playerCar = gameState.cars.find(c => c.isPlayer);
+        if (!playerCar) return;
+
+        const playerRank = gameState.cars.findIndex(c => c.isPlayer) + 1;
+        lapCounter.textContent = `${playerCar.lap} / ${TOTAL_LAPS}`;
+        playerPosition.textContent = `${playerRank} / ${CAR_COUNT}`;
+        playerTyreCompound.textContent = playerCar.tyre.compoundName;
+        playerTyreWear.textContent = `${playerCar.tyre.wear.toFixed(1)}%`;
+        playerPushText.textContent = PUSH_LEVELS[playerCar.pushLevel].name;
+        if (playerCar.tyre.wear > 60) playerTyreWear.style.color = 'lightgreen';
+        else if (playerCar.tyre.wear > 30) playerTyreWear.style.color = 'orange';
+        else playerTyreWear.style.color = 'red';
+
+        let tableHTML = `<table id="standings-table" class="table table-dark table-sm table-borderless"><thead><tr><th>Pos</th><th>Driver</th><th>Gap</th><th>Tyre</th></tr></thead><tbody>`;
+        
+        gameState.cars.forEach((car, index) => {
+            let gapText = '';
+            if (index > 0) {
+                const carInFront = gameState.cars[index - 1];
+                const progressDiff = carInFront.totalProgress - car.totalProgress;
+                const gapInSeconds = (progressDiff / car.speed) / FPS;
+                gapText = `+${gapInSeconds.toFixed(2)}s`;
+            } else {
+                gapText = "Interval";
+            }
+            
+            const tyreColor = TYRE_COMPOUNDS[car.tyre.compoundName]?.color || 'gray';
+            const playerClass = car.isPlayer ? 'player-row' : '';
+
+            tableHTML += `<tr class="${playerClass}">
+                <td>${index + 1}</td>
+                <td>${car.driverName}</td>
+                <td>${gapText}</td>
+                <td><span class="tyre-indicator" style="background-color:${tyreColor};"></span>${car.tyre.compoundName[0]}</td>
+            </tr>`;
+        });
+
+        tableHTML += `</tbody></table>`;
+        standingsContainer.innerHTML = tableHTML;
     }
 
     // --- EVENT LISTENERS ---
-    
-    // Tyre choice buttons in the modal
+    pushSlider.addEventListener('input', (e) => {
+        const playerCar = gameState.cars.find(c => c.isPlayer);
+        if (playerCar) playerCar.pushLevel = parseInt(e.target.value);
+    });
+
+    pitButton.addEventListener('click', () => {
+        const playerCar = gameState.cars.find(c => c.isPlayer);
+        if (playerCar && !playerCar.pitRequest && !playerCar.pitting) {
+            playerCar.pitRequest = true;
+            pitButton.textContent = "Pit Stop Requested";
+            pitButton.disabled = true;
+        }
+    });
+
     tyreChoices.addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
             const chosenTyre = e.target.dataset.tyre;
@@ -160,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             pitButton.textContent = "Request Pit Stop";
             pitButton.disabled = false;
-            pitStopModal.hide(); // Use Bootstrap API
+            pitStopModal.hide();
             
             gameState.raceActive = true;
             gameLoop();
@@ -169,14 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('resize', resizeCanvas);
     
-    // ... (All other event listeners and the initSetup() function are the same)
-    // Omitted for brevity
-
-    // --- START ---
+    // --- START THE SIMULATION ---
     trackImage.onload = () => {
-        // Find the full, non-omitted script to add back the missing functions and objects
-        // and then call initSetup();
+        initSetup();
     };
 });
-// NOTE: For this script to be fully functional, you must re-insert the object definitions 
-// and functions that were marked as "Omitted for brevity" from the previous answer.
