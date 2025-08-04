@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Track Image
     const trackImage = new Image();
-    trackImage.src = 'assets/track.png';
+    trackImage.src = 'assets/track.jpg';
 
     // --- GAME CONFIGURATION ---
     const TOTAL_LAPS = 50;
