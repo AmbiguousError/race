@@ -197,14 +197,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function createCar(id, teamName, driverName, isPlayer, startingTyre) {
+        const nameParts = driverName.split(' ');
+        const initials = nameParts.length > 1 ? `${nameParts[0][0]}${nameParts[1][0]}` : driverName.substring(0, 2).toUpperCase();
+        
         return {
-            id, isPlayer, teamName, driverName,
+            id, isPlayer, teamName, driverName, initials,
             team: TEAMS[teamName],
-            progress: TRACK_LENGTH - id * (TRACK_LENGTH / CAR_COUNT) * 0.5,
+            progress: TRACK_LENGTH - (id * 5), // Reverted to simple stagger
+            totalProgress: TRACK_LENGTH - (id * 5),
             lap: 1, speed: 0, pushLevel: 3,
             tyre: { ...TYRE_COMPOUNDS[startingTyre], wear: 100, compoundName: startingTyre },
             pitting: false, pitRequest: false, pitStopTime: 0,
-            totalProgress: 0,
             lapStartTime: 0,
             lastLapTime: 0,
         };
@@ -295,20 +298,33 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.strokeStyle = '#555555';
         ctx.lineWidth = 20 * scaleFactor;
         ctx.stroke();
+
         gameState.cars.forEach(car => {
             if (car.pitting) return;
             const posIndex = Math.floor(car.progress) % TRACK_LENGTH;
             const pos = trackPath[posIndex];
+            if (!pos) return; // Failsafe for invalid index
+
             const carX = pos.x * scaleFactor;
             const carY = pos.y * scaleFactor;
-            const carRadius = 6 * scaleFactor;
+            const carRadius = 9 * scaleFactor;
+
             ctx.fillStyle = car.team.color;
             ctx.beginPath();
             ctx.arc(carX, carY, carRadius, 0, 2 * Math.PI);
             ctx.fill();
             ctx.strokeStyle = 'black';
-            ctx.lineWidth = Math.max(1, 1 * scaleFactor);
+            ctx.lineWidth = Math.max(1, 1.5 * scaleFactor);
             ctx.stroke();
+
+            const brightness = (parseInt(car.team.color.substring(1,3), 16) * 0.299) + 
+                                 (parseInt(car.team.color.substring(3,5), 16) * 0.587) + 
+                                 (parseInt(car.team.color.substring(5,7), 16) * 0.114);
+            ctx.fillStyle = brightness > 128 ? 'black' : 'white';
+            ctx.font = `bold ${carRadius * 0.9}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(car.initials, carX, carY);
         });
     }
 
