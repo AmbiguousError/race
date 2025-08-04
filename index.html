@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Race Simulator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="setup-screen">
+        <h1>F1 Race Simulator</h1>
+        <p>Choose your team to begin:</p>
+        <div id="team-selection">
+            </div>
+    </div>
+
+    <div id="race-screen" class="hidden">
+        <div id="race-container">
+            <canvas id="race-track" width="1000" height="600"></canvas>
+        </div>
+        <div id="ui-panel">
+            <h2>Race Info</h2>
+            <div id="race-data">
+                <p>Lap: <span id="lap-counter">1 / 50</span></p>
+                <p>Position: <span id="player-position">1 / 20</span></p>
+            </div>
+            <hr>
+            <h3>Your Status</h3>
+            <div id="player-status">
+                <p>Tyres: <span id="player-tyre-compound">Medium</span> (<span id="player-tyre-wear">100%</span>)</p>
+                <p>Push Level: <span id="player-push-text">Balanced</span></p>
+            </div>
+            <hr>
+            <h3>Controls</h3>
+            <div class="control-group">
+                <label for="push-slider">Push Level:</label>
+                <input type="range" id="push-slider" min="1" max="5" value="3" step="1">
+            </div>
+            <button id="pit-button">Request Pit Stop</button>
+        </div>
+    </div>
+
+    <div id="pit-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Choose Next Tyre Compound</h3>
+            <div id="tyre-choices">
+                <button class="tyre-option" data-tyre="Soft">Soft</button>
+                <button class="tyre-option" data-tyre="Medium">Medium</button>
+                <button class="tyre-option" data-tyre="Hard">Hard</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
