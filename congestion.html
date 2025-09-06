@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motorway Commute Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-7xl mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        <header class="mb-6 border-b pb-4">
+            <h1 class="text-3xl font-bold text-gray-900">Morning Commute Simulation</h1>
+            <p class="text-md text-gray-600 mt-1">Modeling a 2-lane, one-way ring road with strict bus priority.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-1 bg-gray-50 p-6 rounded-xl border">
+                <h2 class="text-xl font-semibold mb-6">Simulation Controls</h2>
+                
+                <div id="phase-display" class="mb-6 p-4 rounded-lg text-center transition-all duration-300 bg-yellow-200 text-yellow-800">
+                    <p class="font-bold text-lg" id="phase-text">Morning Rush</p>
+                    <p class="text-sm" id="phase-time">07:00</p>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="block text-sm font-medium text-gray-700">Motorway Lanes: <span class="font-bold text-indigo-600">2 (1 Bus, 1 Car)</span></h3>
+                    <p class="text-xs text-gray-500">Lane count is fixed for this scenario.</p>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label for="cars" class="block text-sm font-medium text-gray-700">Target Cars: <span id="cars-value" class="font-bold text-indigo-600">100</span></label>
+                        <input type="range" id="cars" min="10" max="200" value="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div>
+                        <label for="buses" class="block text-sm font-medium text-gray-700">Target Buses: <span id="buses-value" class="font-bold text-indigo-600">15</span></label>
+                        <input type="range" id="buses" min="0" max="40" value="15" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+
+                <div class="mt-8 flex space-x-3">
+                    <button id="start-stop" class="flex-1 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 transition duration-200">Start</button>
+                    <button id="reset" class="flex-1 bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-75 transition duration-200">Reset</button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2">
+                <div class="bg-gray-800 rounded-xl overflow-hidden shadow-inner relative">
+                    <canvas id="simulationCanvas"></canvas>
+                </div>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div class="bg-gray-50 p-4 rounded-xl border">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Avg Speed</h3>
+                        <p id="avg-speed" class="text-2xl font-semibold text-gray-900">0 km/h</p>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Vehicles Queuing</h3>
+                        <p id="queuing-vehicles" class="text-2xl font-semibold text-yellow-700">0</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-200">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Trips Completed</h3>
+                        <p id="trips" class="text-2xl font-semibold text-green-700">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('simulationCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- DOM Elements ---
+    const carsSlider = document.getElementById('cars');
+    const busesSlider = document.getElementById('buses');
+    const startStopBtn = document.getElementById('start-stop');
+    const resetBtn = document.getElementById('reset');
+    const carsValue = document.getElementById('cars-value');
+    const busesValue = document.getElementById('buses-value');
+    const avgSpeedEl = document.getElementById('avg-speed');
+    const queuingEl = document.getElementById('queuing-vehicles');
+    const tripsEl = document.getElementById('trips');
+    const phaseDisplay = document.getElementById('phase-display');
+    const phaseText = document.getElementById('phase-text');
+    const phaseTime = document.getElementById('phase-time');
+
+    // --- Simulation Config ---
+    const SIM_TICK_RATE = 16;
+    const SECONDS_PER_HOUR = 180; // Slower clock for better observation
+    const PIXELS_PER_METER = 1.5;
+    const SAFE_DISTANCE_METERS = 25;
+    const LANE_WIDTH = 12;
+    const BUS_LANE = 0;
+    const CAR_LANE = 1;
+    const MOTORWAY_DIRECTION = 1;
+    const VEHICLE_STATES = { ON_RAMP: 0, MERGING: 1, ON_MOTORWAY: 2, ON_OFF_RAMP: 3, REMOVED: 4 };
+
+    const VEHICLE_CONFIG = {
+        car: { color: 'rgba(59, 130, 246, 0.95)', width: 4.5, height: 2, maxSpeed: 110, accel: 3 },
+        bus: { color: 'rgba(249, 115, 22, 0.95)', width: 12, height: 3, maxSpeed: 80, accel: 1.5 }
+    };
+
+    // --- Simulation State ---
+    let vehicles = [], junctions = {};
+    let animationFrameId, isRunning = false, simTime = 0, totalTrips = 0;
+    let roadCenterX, roadCenterY, roadRadius;
+
+    class Vehicle {
+        constructor(type, originId) {
+            this.id = Math.random();
+            this.type = type;
+            this.config = VEHICLE_CONFIG[type];
+            this.state = VEHICLE_STATES.ON_RAMP;
+            
+            this.originId = originId;
+            const destinationOptions = Object.keys(junctions).filter(id => id !== originId);
+            this.destinationId = destinationOptions[Math.floor(Math.random() * destinationOptions.length)];
+
+            const rampLane = this.type === 'bus' ? 'busRamp' : 'carRamp';
+            const originRamp = junctions[this.originId][rampLane];
+            this.x = originRamp.start.x;
+            this.y = originRamp.start.y;
+            this.lastX = this.x;
+            this.lastY = this.y;
+            this.distOnRamp = 0;
+            this.drawAngle = Math.atan2(originRamp.control.y - originRamp.start.y, originRamp.control.x - originRamp.start.x);
+            
+            this.length = this.config.width * PIXELS_PER_METER;
+            this.maxSpeed = (this.config.maxSpeed / 3.6) * PIXELS_PER_METER;
+            this.accel = this.config.accel * PIXELS_PER_METER;
+            this.speed = 0;
+            this.laps = 0;
+            this.passedOrigin = false;
+        }
+
+        update(dt, allVehicles) {
+            if (this.state === VEHICLE_STATES.REMOVED) return;
+
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            let desiredSpeed = this.maxSpeed;
+
+            // Bus priority
+            if (this.type === 'car' && (this.state === VEHICLE_STATES.ON_MOTORWAY || this.state === VEHICLE_STATES.ON_RAMP)) {
+                for (const jId in junctions) {
+                    if (junctions[jId].busMerging) {
+                        const mergePoint = junctions[jId].busRamp.mergePoint;
+                        const distToMerge = Math.hypot(this.x - mergePoint.x, this.y - mergePoint.y);
+                        if(distToMerge < 80 * PIXELS_PER_METER) { desiredSpeed *= 0.6; break; }
+                    }
+                }
+            }
+            
+            // Collision avoidance
+            let { vehicleInFront, distance } = this.getVehicleInFront(allVehicles);
+            if (vehicleInFront && distance < SAFE_DISTANCE_METERS * PIXELS_PER_METER) {
+                desiredSpeed = Math.min(desiredSpeed, vehicleInFront.speed);
+            }
+
+            this.handleStateLogic(dt, allVehicles);
+
+            if (this.speed < desiredSpeed) this.speed = Math.min(desiredSpeed, this.speed + this.accel * dt);
+            else if (this.speed > desiredSpeed) this.speed = Math.max(0, this.speed - this.accel * 2 * dt);
+
+            // Update draw angle based on movement
+            const dx = this.x - this.lastX;
+            const dy = this.y - this.lastY;
+            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+                const targetAngle = Math.atan2(dy, dx);
+                let angleDiff = targetAngle - this.drawAngle;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                this.drawAngle += angleDiff * dt * 7;
+            }
+        }
+
+        handleStateLogic(dt, allVehicles) {
+            switch(this.state) {
+                case VEHICLE_STATES.ON_RAMP: {
+                    const rampLane = this.type === 'bus' ? 'busRamp' : 'carRamp';
+                    const ramp = junctions[this.originId][rampLane];
+                    this.distOnRamp += this.speed * dt;
+                    const rampLength = ramp.length;
+                    const progress = Math.min(1, this.distOnRamp / rampLength);
+                    
+                    const p0 = ramp.start;
+                    const p1 = ramp.control;
+                    const p2 = ramp.mergePoint;
+                    this.x = Math.pow(1 - progress, 2) * p0.x + 2 * (1 - progress) * progress * p1.x + Math.pow(progress, 2) * p2.x;
+                    this.y = Math.pow(1 - progress, 2) * p0.y + 2 * (1 - progress) * progress * p1.y + Math.pow(progress, 2) * p2.y;
+
+                    if (progress >= 1) this.state = VEHICLE_STATES.MERGING;
+                    break;
+                }
+                case VEHICLE_STATES.MERGING: {
+                    if (this.type === 'bus') junctions[this.originId].busMerging = true;
+                    this.speed *= 0.8;
+                    if (this.tryMerge(allVehicles)) {
+                        this.state = VEHICLE_STATES.ON_MOTORWAY;
+                        if (this.type === 'bus') junctions[this.originId].busMerging = false;
+                    } else { this.speed = 0; }
+                    break;
+                }
+                case VEHICLE_STATES.ON_MOTORWAY: {
+                    const destJunction = junctions[this.destinationId];
+                    let angleToDest = (destJunction.angle - this.angle) * MOTORWAY_DIRECTION;
+                    if (angleToDest < 0) angleToDest += 2 * Math.PI;
+
+                    if (this.laps < 1) { 
+                        let angleToOrigin = (junctions[this.originId].angle - this.angle) * MOTORWAY_DIRECTION;
+                        if(angleToOrigin < 0) angleToOrigin += 2 * Math.PI;
+                        if (angleToOrigin > Math.PI) this.passedOrigin = true;
+                        if(this.passedOrigin && angleToOrigin < 0.2) this.laps = 1;
+                    }
+
+                    if (this.laps > 0 && angleToDest < 0.05) {
+                        this.state = VEHICLE_STATES.ON_OFF_RAMP;
+                        this.distOnRamp = junctions[this.destinationId][this.type === 'bus' ? 'busRamp' : 'carRamp'].length;
+                    }
+
+                    this.angle += (this.speed / (roadRadius + this.lane * LANE_WIDTH)) * MOTORWAY_DIRECTION * dt;
+                    if (this.angle > 2 * Math.PI) this.angle -= 2 * Math.PI;
+                    if (this.angle < 0) this.angle += 2 * Math.PI;
+                    
+                    const currentRadius = roadRadius + this.lane * LANE_WIDTH;
+                    this.x = roadCenterX + currentRadius * Math.cos(this.angle);
+                    this.y = roadCenterY + currentRadius * Math.sin(this.angle);
+                    break;
+                }
+                case VEHICLE_STATES.ON_OFF_RAMP: {
+                    const rampLane = this.type === 'bus' ? 'busRamp' : 'carRamp';
+                    const ramp = junctions[this.destinationId][rampLane];
+                    
+                    this.distOnRamp -= this.speed * dt;
+                    const progress = Math.max(0, this.distOnRamp / ramp.length);
+
+                    const p0 = ramp.start;
+                    const p1 = ramp.control;
+                    const p2 = ramp.mergePoint;
+                    this.x = Math.pow(1 - progress, 2) * p0.x + 2 * (1 - progress) * progress * p1.x + Math.pow(progress, 2) * p2.x;
+                    this.y = Math.pow(1 - progress, 2) * p0.y + 2 * (1 - progress) * progress * p1.y + Math.pow(progress, 2) * p2.y;
+
+                    if (progress <= 0) {
+                        this.state = VEHICLE_STATES.REMOVED;
+                        totalTrips++;
+                    }
+                    break;
+                }
+            }
+        }
+        
+        tryMerge(allVehicles) {
+            this.lane = this.type === 'bus' ? BUS_LANE : CAR_LANE;
+            const mergeRadius = roadRadius + this.lane * LANE_WIDTH;
+            const mergeAngle = junctions[this.originId][this.type === 'bus' ? 'busRamp' : 'carRamp'].mergePoint.angle;
+
+            const safeGapArc = (this.length * 1.5) / mergeRadius;
+            for (const v of allVehicles) {
+                if (v.id === this.id || v.state !== VEHICLE_STATES.ON_MOTORWAY || v.lane !== this.lane) continue;
+                let angleDiff = (mergeAngle - v.angle) * MOTORWAY_DIRECTION;
+                if (angleDiff < 0) angleDiff += 2 * Math.PI;
+                if (angleDiff < safeGapArc) return false;
+
+                let behindAngleDiff = (v.angle - mergeAngle) * MOTORWAY_DIRECTION;
+                if (behindAngleDiff < 0) behindAngleDiff += 2 * Math.PI;
+                if (behindAngleDiff < (v.length * 1.5)/mergeRadius) return false;
+            }
+            this.angle = mergeAngle;
+            return true;
+        }
+
+        getVehicleInFront(allVehicles) {
+            let closestVehicle = null;
+            let minDistance = Infinity;
+
+            switch (this.state) {
+                case VEHICLE_STATES.ON_RAMP:
+                    const myRampLane = this.type === 'bus' ? 'busRamp' : 'carRamp';
+                    for (const other of allVehicles) {
+                        if (other.id === this.id || other.state !== this.state || other.originId !== this.originId) continue;
+                        const otherRampLane = other.type === 'bus' ? 'busRamp' : 'carRamp';
+                        if (myRampLane !== otherRampLane) continue;
+
+                        const distDiff = other.distOnRamp - this.distOnRamp;
+                        if (distDiff > 0 && distDiff < minDistance) {
+                            minDistance = distDiff;
+                            closestVehicle = other;
+                        }
+                    }
+                    break;
+                case VEHICLE_STATES.ON_MOTORWAY:
+                    const myRadius = roadRadius + this.lane * LANE_WIDTH;
+                    for (const other of allVehicles) {
+                        if (other.id === this.id || other.state !== this.state || other.lane !== this.lane) continue;
+                        let angleDiff = (other.angle - this.angle) * MOTORWAY_DIRECTION;
+                        if (angleDiff < 0) angleDiff += 2 * Math.PI;
+                        const distance = angleDiff * myRadius;
+                        if (distance > 0.1 && distance < minDistance) {
+                            minDistance = distance;
+                            closestVehicle = other;
+                        }
+                    }
+                    break;
+            }
+            return { vehicleInFront: closestVehicle, distance: minDistance };
+        }
+        
+        draw() {
+            if (this.state === VEHICLE_STATES.REMOVED) return;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.drawAngle);
+            ctx.fillStyle = this.config.color;
+            ctx.fillRect(-this.length / 2, -this.config.height * PIXELS_PER_METER / 2, this.length, this.config.height * PIXELS_PER_METER);
+            ctx.restore();
+        }
+    }
+
+    function setup() {
+        setupCanvas();
+        defineJunctions();
+        resetSimulation();
+    }
+    
+    function setupCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.width * 0.8 * dpr;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.width * 0.8}px`;
+        ctx.scale(dpr, dpr);
+        roadCenterX = (canvas.width / dpr) / 2;
+        roadCenterY = (canvas.height / dpr) / 2;
+        roadRadius = (canvas.width / dpr) * 0.3;
+    }
+
+    function defineJunctions() {
+        const busRadius = roadRadius + BUS_LANE * LANE_WIDTH;
+        const carRadius = roadRadius + CAR_LANE * LANE_WIDTH;
+
+        const junctionAngles = {'N': -Math.PI/2, 'E': 0, 'S': Math.PI/2, 'W': Math.PI};
+        
+        for(const id in junctionAngles) {
+            const angle = junctionAngles[id];
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
+            
+            const busMerge = { x: roadCenterX + busRadius * cosA, y: roadCenterY + busRadius * sinA, angle: angle };
+            const carMerge = { x: roadCenterX + carRadius * cosA, y: roadCenterY + carRadius * sinA, angle: angle };
+            
+            const controlOffset = 80;
+            const rampStartOffset = 150;
+
+            // This is the "crossed" but functional logic
+            const busControl = { x: roadCenterX + (busRadius - controlOffset) * cosA, y: roadCenterY + (busRadius - controlOffset) * sinA };
+            const carControl = { x: roadCenterX + (carRadius + controlOffset) * cosA, y: roadCenterY + (carRadius + controlOffset) * sinA };
+
+            const busStart = {x: busControl.x - rampStartOffset * cosA, y: busControl.y - rampStartOffset * sinA};
+            const carStart = {x: carControl.x + rampStartOffset * cosA, y: carControl.y + rampStartOffset * sinA};
+
+            junctions[id] = {
+                angle: angle,
+                busMerging: false,
+                busRamp: { start: busStart, control: busControl, mergePoint: busMerge, length: 0},
+                carRamp: { start: carStart, control: carControl, mergePoint: carMerge, length: 0}
+            };
+            const p0b = junctions[id].busRamp.start, p1b = junctions[id].busRamp.control, p2b = junctions[id].busRamp.mergePoint;
+            junctions[id].busRamp.length = Math.hypot(p1b.x-p0b.x, p1b.y-p0b.y) + Math.hypot(p2b.x-p1b.x, p2b.y-p1b.y);
+            const p0c = junctions[id].carRamp.start, p1c = junctions[id].carRamp.control, p2c = junctions[id].carRamp.mergePoint;
+            junctions[id].carRamp.length = Math.hypot(p1c.x-p0c.x, p1c.y-p0c.y) + Math.hypot(p2c.x-p1c.x, p2c.y-p1c.y);
+        }
+    }
+
+    function drawBackground() {
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.width / dpr;
+        const h = canvas.height / dpr;
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = '#6ab04c';
+        ctx.fillRect(0, 0, w, h);
+
+        const roadWidth = 2 * LANE_WIDTH;
+        ctx.fillStyle = '#4b5563';
+        ctx.beginPath();
+        ctx.arc(roadCenterX, roadCenterY, roadRadius + roadWidth, 0, 2*Math.PI);
+        ctx.arc(roadCenterX, roadCenterY, roadRadius, 0, 2*Math.PI, true);
+        ctx.fill();
+
+        ctx.strokeStyle = '#a4b0be';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([10, 15]);
+        ctx.beginPath();
+        ctx.arc(roadCenterX, roadCenterY, roadRadius + CAR_LANE * LANE_WIDTH, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(roadCenterX, roadCenterY, roadRadius + BUS_LANE * LANE_WIDTH + LANE_WIDTH -1, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        for(const id in junctions) {
+            const j = junctions[id];
+            
+            // Draw separate ramps
+            ctx.lineWidth = LANE_WIDTH - 2;
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+            ctx.beginPath();
+            ctx.moveTo(j.carRamp.start.x, j.carRamp.start.y);
+            ctx.quadraticCurveTo(j.carRamp.control.x, j.carRamp.control.y, j.carRamp.mergePoint.x, j.carRamp.mergePoint.y);
+            ctx.stroke();
+            
+            ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
+            ctx.beginPath();
+            ctx.moveTo(j.busRamp.start.x, j.busRamp.start.y);
+            ctx.quadraticCurveTo(j.busRamp.control.x, j.busRamp.control.y, j.busRamp.mergePoint.x, j.busRamp.mergePoint.y);
+            ctx.stroke();
+        }
+    }
+
+    function manageVehiclePopulation() {
+        const hours = Math.floor(simTime / SECONDS_PER_HOUR) % 24;
+        const isRushHour = hours >= 7 && hours < 10;
+        if (!isRushHour) return;
+
+        const carCount = vehicles.filter(v => v.type === 'car').length;
+        if (carCount < parseInt(carsSlider.value) && Math.random() < 0.1) {
+            const originId = Object.keys(junctions)[Math.floor(Math.random()*4)];
+            vehicles.push(new Vehicle('car', originId));
+        }
+
+        const busCount = vehicles.filter(v => v.type === 'bus').length;
+        if (busCount < parseInt(busesSlider.value) && Math.random() < 0.03) {
+            const originId = Object.keys(junctions)[Math.floor(Math.random()*4)];
+            vehicles.push(new Vehicle('bus', originId));
+        }
+    }
+
+    function animate() {
+        if (!isRunning) return;
+        const dt = SIM_TICK_RATE / 1000;
+        simTime += dt * (3600 / SECONDS_PER_HOUR);
+        manageVehiclePopulation();
+
+        drawBackground();
+        vehicles.forEach(v => v.update(dt, vehicles));
+        vehicles = vehicles.filter(v => v.state !== VEHICLE_STATES.REMOVED);
+        vehicles.forEach(v => v.draw());
+
+        updateStats();
+        animationFrameId = requestAnimationFrame(animate);
+    }
+    
+    function updateStats() {
+        let totalSpeed = 0;
+        const motorwayVehicles = vehicles.filter(v => v.state === VEHICLE_STATES.ON_MOTORWAY);
+        motorwayVehicles.forEach(v => totalSpeed += v.speed);
+        const avgSpeedKmh = (totalSpeed / (motorwayVehicles.length || 1)) / PIXELS_PER_METER * 3.6;
+        avgSpeedEl.textContent = `${Math.round(isNaN(avgSpeedKmh) ? 0 : avgSpeedKmh)} km/h`;
+        
+        const queuingCount = vehicles.filter(v => v.state === VEHICLE_STATES.MERGING && v.speed < 1).length;
+        queuingEl.textContent = queuingCount;
+        tripsEl.textContent = totalTrips.toLocaleString();
+
+        const hours = Math.floor(simTime / SECONDS_PER_HOUR) % 24;
+        const minutes = Math.floor((simTime % SECONDS_PER_HOUR) / SECONDS_PER_HOUR * 60);
+        phaseTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+    
+    function resetSimulation() {
+        isRunning = false;
+        cancelAnimationFrame(animationFrameId);
+        startStopBtn.textContent = 'Start';
+        startStopBtn.classList.replace('bg-red-600', 'bg-indigo-600');
+        simTime = 7 * SECONDS_PER_HOUR;
+        totalTrips = 0;
+        vehicles = [];
+        defineJunctions();
+        drawBackground();
+        updateStats();
+    }
+
+    function toggleSimulation() {
+        isRunning = !isRunning;
+        startStopBtn.textContent = isRunning ? 'Stop' : 'Start';
+        startStopBtn.classList.toggle('bg-indigo-600', !isRunning);
+        startStopBtn.classList.toggle('bg-red-600', isRunning);
+        if (isRunning) animate(); else cancelAnimationFrame(animationFrameId);
+    }
+
+    // --- Event Listeners ---
+    startStopBtn.addEventListener('click', toggleSimulation);
+    resetBtn.addEventListener('click', resetSimulation);
+    [carsSlider, busesSlider].forEach(slider => {
+        slider.addEventListener('input', () => {
+            carsValue.textContent = carsSlider.value;
+            busesValue.textContent = busesSlider.value;
+        });
+    });
+    window.addEventListener('resize', () => { setup(); });
+
+    // --- Initial Setup ---
+    setup();
+
+</script>
+</body>
+</html>
