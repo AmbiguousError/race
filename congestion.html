@@ -56,18 +56,37 @@
                 <div class="bg-gray-800 rounded-xl overflow-hidden shadow-inner relative">
                     <canvas id="simulationCanvas"></canvas>
                 </div>
-                <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     <div class="bg-gray-50 p-4 rounded-xl border">
                         <h3 class="text-sm font-medium text-gray-500 uppercase">Avg Speed</h3>
                         <p id="avg-speed" class="text-2xl font-semibold text-gray-900">0 km/h</p>
                     </div>
                     <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                        <h3 class="text-sm font-medium text-gray-500 uppercase">Vehicles Queuing</h3>
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Queuing</h3>
                         <p id="queuing-vehicles" class="text-2xl font-semibold text-yellow-700">0</p>
                     </div>
-                    <div class="bg-green-50 p-4 rounded-xl border border-green-200">
-                        <h3 class="text-sm font-medium text-gray-500 uppercase">Trips Completed</h3>
-                        <p id="trips" class="text-2xl font-semibold text-green-700">0</p>
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Commuting</h3>
+                        <div class="flex justify-center space-x-4 mt-1 text-lg">
+                            <p>🚗 <span id="commuting-car" class="font-semibold text-blue-700">0</span></p>
+                            <p>🚌 <span id="commuting-bus" class="font-semibold text-blue-700">0</span></p>
+                        </div>
+                    </div>
+                     <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Avg. Trip Time</h3>
+                        <div class="flex justify-center space-x-4 mt-1 text-lg">
+                            <p>🚗 <span id="avg-time-car" class="font-semibold text-indigo-700">0:00</span></p>
+                            <p>🚌 <span id="avg-time-bus" class="font-semibold text-indigo-700">0:00</span></p>
+                        </div>
+                    </div>
+                </div>
+                 <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-200 col-span-1 md:col-span-3">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Total Passengers Arrived: <span id="passengers-arrived" class="text-2xl font-semibold text-green-700">0</span></h3>
+                         <div class="mt-2 flex justify-center space-x-6 text-sm">
+                            <p>🚗 Cars: <span id="passengers-car" class="font-bold">0</span></p>
+                            <p>🚌 Buses: <span id="passengers-bus" class="font-bold">0</span></p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -87,14 +106,18 @@
     const busesValue = document.getElementById('buses-value');
     const avgSpeedEl = document.getElementById('avg-speed');
     const queuingEl = document.getElementById('queuing-vehicles');
-    const tripsEl = document.getElementById('trips');
-    const phaseDisplay = document.getElementById('phase-display');
-    const phaseText = document.getElementById('phase-text');
+    const commutingCarEl = document.getElementById('commuting-car');
+    const commutingBusEl = document.getElementById('commuting-bus');
+    const avgTimeCarEl = document.getElementById('avg-time-car');
+    const avgTimeBusEl = document.getElementById('avg-time-bus');
+    const passengersArrivedEl = document.getElementById('passengers-arrived');
+    const passengersCarEl = document.getElementById('passengers-car');
+    const passengersBusEl = document.getElementById('passengers-bus');
     const phaseTime = document.getElementById('phase-time');
 
     // --- Simulation Config ---
     const SIM_TICK_RATE = 16;
-    const SECONDS_PER_HOUR = 180; // Slower clock for better observation
+    const SECONDS_PER_HOUR = 180;
     const PIXELS_PER_METER = 1.5;
     const SAFE_DISTANCE_METERS = 25;
     const LANE_WIDTH = 12;
@@ -104,13 +127,14 @@
     const VEHICLE_STATES = { ON_RAMP: 0, MERGING: 1, ON_MOTORWAY: 2, ON_OFF_RAMP: 3, REMOVED: 4 };
 
     const VEHICLE_CONFIG = {
-        car: { color: 'rgba(59, 130, 246, 0.95)', width: 4.5, height: 2, maxSpeed: 110, accel: 3 },
-        bus: { color: 'rgba(249, 115, 22, 0.95)', width: 12, height: 3, maxSpeed: 80, accel: 1.5 }
+        car: { color: 'rgba(59, 130, 246, 0.95)', width: 4.5, height: 2, maxSpeed: 110, accel: 3, passengers: 1.2 },
+        bus: { color: 'rgba(249, 115, 22, 0.95)', width: 12, height: 3, maxSpeed: 80, accel: 1.5, passengers: 40 }
     };
 
     // --- Simulation State ---
     let vehicles = [], junctions = {};
-    let animationFrameId, isRunning = false, simTime = 0, totalTrips = 0;
+    let animationFrameId, isRunning = false, simTime = 0;
+    let totalTrips = { car: 0, bus: 0 }, totalTravelTime = { car: 0, bus: 0 }, totalPassengers = { car: 0, bus: 0 };
     let roadCenterX, roadCenterY, roadRadius;
 
     class Vehicle {
@@ -128,8 +152,7 @@
             const originRamp = junctions[this.originId][rampLane];
             this.x = originRamp.start.x;
             this.y = originRamp.start.y;
-            this.lastX = this.x;
-            this.lastY = this.y;
+            this.lastX = this.x; this.lastY = this.y;
             this.distOnRamp = 0;
             this.drawAngle = Math.atan2(originRamp.control.y - originRamp.start.y, originRamp.control.x - originRamp.start.x);
             
@@ -139,28 +162,26 @@
             this.speed = 0;
             this.laps = 0;
             this.passedOrigin = false;
+            this.startTime = simTime;
         }
 
         update(dt, allVehicles) {
             if (this.state === VEHICLE_STATES.REMOVED) return;
 
-            this.lastX = this.x;
-            this.lastY = this.y;
-
+            this.lastX = this.x; this.lastY = this.y;
             let desiredSpeed = this.maxSpeed;
 
-            // Bus priority
             if (this.type === 'car' && (this.state === VEHICLE_STATES.ON_MOTORWAY || this.state === VEHICLE_STATES.ON_RAMP)) {
                 for (const jId in junctions) {
                     if (junctions[jId].busMerging) {
                         const mergePoint = junctions[jId].busRamp.mergePoint;
-                        const distToMerge = Math.hypot(this.x - mergePoint.x, this.y - mergePoint.y);
-                        if(distToMerge < 80 * PIXELS_PER_METER) { desiredSpeed *= 0.6; break; }
+                        if(Math.hypot(this.x - mergePoint.x, this.y - mergePoint.y) < 80 * PIXELS_PER_METER) { 
+                            desiredSpeed *= 0.6; break; 
+                        }
                     }
                 }
             }
             
-            // Collision avoidance
             let { vehicleInFront, distance } = this.getVehicleInFront(allVehicles);
             if (vehicleInFront && distance < SAFE_DISTANCE_METERS * PIXELS_PER_METER) {
                 desiredSpeed = Math.min(desiredSpeed, vehicleInFront.speed);
@@ -171,9 +192,7 @@
             if (this.speed < desiredSpeed) this.speed = Math.min(desiredSpeed, this.speed + this.accel * dt);
             else if (this.speed > desiredSpeed) this.speed = Math.max(0, this.speed - this.accel * 2 * dt);
 
-            // Update draw angle based on movement
-            const dx = this.x - this.lastX;
-            const dy = this.y - this.lastY;
+            const dx = this.x - this.lastX; const dy = this.y - this.lastY;
             if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
                 const targetAngle = Math.atan2(dy, dx);
                 let angleDiff = targetAngle - this.drawAngle;
@@ -189,12 +208,9 @@
                     const rampLane = this.type === 'bus' ? 'busRamp' : 'carRamp';
                     const ramp = junctions[this.originId][rampLane];
                     this.distOnRamp += this.speed * dt;
-                    const rampLength = ramp.length;
-                    const progress = Math.min(1, this.distOnRamp / rampLength);
+                    const progress = Math.min(1, this.distOnRamp / ramp.length);
                     
-                    const p0 = ramp.start;
-                    const p1 = ramp.control;
-                    const p2 = ramp.mergePoint;
+                    const p0 = ramp.start, p1 = ramp.control, p2 = ramp.mergePoint;
                     this.x = Math.pow(1 - progress, 2) * p0.x + 2 * (1 - progress) * progress * p1.x + Math.pow(progress, 2) * p2.x;
                     this.y = Math.pow(1 - progress, 2) * p0.y + 2 * (1 - progress) * progress * p1.y + Math.pow(progress, 2) * p2.y;
 
@@ -239,19 +255,18 @@
                 case VEHICLE_STATES.ON_OFF_RAMP: {
                     const rampLane = this.type === 'bus' ? 'busRamp' : 'carRamp';
                     const ramp = junctions[this.destinationId][rampLane];
-                    
                     this.distOnRamp -= this.speed * dt;
                     const progress = Math.max(0, this.distOnRamp / ramp.length);
 
-                    const p0 = ramp.start;
-                    const p1 = ramp.control;
-                    const p2 = ramp.mergePoint;
+                    const p0 = ramp.start, p1 = ramp.control, p2 = ramp.mergePoint;
                     this.x = Math.pow(1 - progress, 2) * p0.x + 2 * (1 - progress) * progress * p1.x + Math.pow(progress, 2) * p2.x;
                     this.y = Math.pow(1 - progress, 2) * p0.y + 2 * (1 - progress) * progress * p1.y + Math.pow(progress, 2) * p2.y;
 
                     if (progress <= 0) {
                         this.state = VEHICLE_STATES.REMOVED;
-                        totalTrips++;
+                        totalTrips[this.type]++;
+                        totalTravelTime[this.type] += (simTime - this.startTime);
+                        totalPassengers[this.type] += this.config.passengers;
                     }
                     break;
                 }
@@ -262,14 +277,12 @@
             this.lane = this.type === 'bus' ? BUS_LANE : CAR_LANE;
             const mergeRadius = roadRadius + this.lane * LANE_WIDTH;
             const mergeAngle = junctions[this.originId][this.type === 'bus' ? 'busRamp' : 'carRamp'].mergePoint.angle;
-
             const safeGapArc = (this.length * 1.5) / mergeRadius;
             for (const v of allVehicles) {
                 if (v.id === this.id || v.state !== VEHICLE_STATES.ON_MOTORWAY || v.lane !== this.lane) continue;
                 let angleDiff = (mergeAngle - v.angle) * MOTORWAY_DIRECTION;
                 if (angleDiff < 0) angleDiff += 2 * Math.PI;
                 if (angleDiff < safeGapArc) return false;
-
                 let behindAngleDiff = (v.angle - mergeAngle) * MOTORWAY_DIRECTION;
                 if (behindAngleDiff < 0) behindAngleDiff += 2 * Math.PI;
                 if (behindAngleDiff < (v.length * 1.5)/mergeRadius) return false;
@@ -279,9 +292,7 @@
         }
 
         getVehicleInFront(allVehicles) {
-            let closestVehicle = null;
-            let minDistance = Infinity;
-
+            let closestVehicle = null, minDistance = Infinity;
             switch (this.state) {
                 case VEHICLE_STATES.ON_RAMP:
                     const myRampLane = this.type === 'bus' ? 'busRamp' : 'carRamp';
@@ -289,12 +300,8 @@
                         if (other.id === this.id || other.state !== this.state || other.originId !== this.originId) continue;
                         const otherRampLane = other.type === 'bus' ? 'busRamp' : 'carRamp';
                         if (myRampLane !== otherRampLane) continue;
-
                         const distDiff = other.distOnRamp - this.distOnRamp;
-                        if (distDiff > 0 && distDiff < minDistance) {
-                            minDistance = distDiff;
-                            closestVehicle = other;
-                        }
+                        if (distDiff > 0 && distDiff < minDistance) { minDistance = distDiff; closestVehicle = other; }
                     }
                     break;
                 case VEHICLE_STATES.ON_MOTORWAY:
@@ -304,10 +311,7 @@
                         let angleDiff = (other.angle - this.angle) * MOTORWAY_DIRECTION;
                         if (angleDiff < 0) angleDiff += 2 * Math.PI;
                         const distance = angleDiff * myRadius;
-                        if (distance > 0.1 && distance < minDistance) {
-                            minDistance = distance;
-                            closestVehicle = other;
-                        }
+                        if (distance > 0.1 && distance < minDistance) { minDistance = distance; closestVehicle = other; }
                     }
                     break;
             }
@@ -347,33 +351,18 @@
     function defineJunctions() {
         const busRadius = roadRadius + BUS_LANE * LANE_WIDTH;
         const carRadius = roadRadius + CAR_LANE * LANE_WIDTH;
-
         const junctionAngles = {'N': -Math.PI/2, 'E': 0, 'S': Math.PI/2, 'W': Math.PI};
-        
         for(const id in junctionAngles) {
-            const angle = junctionAngles[id];
-            const cosA = Math.cos(angle);
-            const sinA = Math.sin(angle);
-            
+            const angle = junctionAngles[id], cosA = Math.cos(angle), sinA = Math.sin(angle);
             const busMerge = { x: roadCenterX + busRadius * cosA, y: roadCenterY + busRadius * sinA, angle: angle };
             const carMerge = { x: roadCenterX + carRadius * cosA, y: roadCenterY + carRadius * sinA, angle: angle };
-            
-            const controlOffset = 80;
-            const rampStartOffset = 150;
-
-            // This is the "crossed" but functional logic
-            const busControl = { x: roadCenterX + (busRadius - controlOffset) * cosA, y: roadCenterY + (busRadius - controlOffset) * sinA };
+            const controlOffset = 80, rampStartOffset = 150;
             const carControl = { x: roadCenterX + (carRadius + controlOffset) * cosA, y: roadCenterY + (carRadius + controlOffset) * sinA };
-
-            const busStart = {x: busControl.x - rampStartOffset * cosA, y: busControl.y - rampStartOffset * sinA};
             const carStart = {x: carControl.x + rampStartOffset * cosA, y: carControl.y + rampStartOffset * sinA};
-
-            junctions[id] = {
-                angle: angle,
-                busMerging: false,
-                busRamp: { start: busStart, control: busControl, mergePoint: busMerge, length: 0},
-                carRamp: { start: carStart, control: carControl, mergePoint: carMerge, length: 0}
-            };
+            const perpVector = { x: -sinA, y: cosA }; 
+            const busControl = { x: carControl.x - perpVector.x * LANE_WIDTH, y: carControl.y - perpVector.y * LANE_WIDTH };
+            const busStart = { x: carStart.x - perpVector.x * LANE_WIDTH, y: carStart.y - perpVector.y * LANE_WIDTH };
+            junctions[id] = { angle: angle, busMerging: false, busRamp: { start: busStart, control: busControl, mergePoint: busMerge, length: 0}, carRamp: { start: carStart, control: carControl, mergePoint: carMerge, length: 0}};
             const p0b = junctions[id].busRamp.start, p1b = junctions[id].busRamp.control, p2b = junctions[id].busRamp.mergePoint;
             junctions[id].busRamp.length = Math.hypot(p1b.x-p0b.x, p1b.y-p0b.y) + Math.hypot(p2b.x-p1b.x, p2b.y-p1b.y);
             const p0c = junctions[id].carRamp.start, p1c = junctions[id].carRamp.control, p2c = junctions[id].carRamp.mergePoint;
@@ -383,49 +372,31 @@
 
     function drawBackground() {
         const dpr = window.devicePixelRatio || 1;
-        const w = canvas.width / dpr;
-        const h = canvas.height / dpr;
+        const w = canvas.width/dpr, h = canvas.height/dpr;
         ctx.clearRect(0,0,w,h);
-        ctx.fillStyle = '#6ab04c';
-        ctx.fillRect(0, 0, w, h);
-
+        ctx.fillStyle = '#6ab04c'; ctx.fillRect(0,0,w,h);
         const roadWidth = 2 * LANE_WIDTH;
         ctx.fillStyle = '#4b5563';
         ctx.beginPath();
         ctx.arc(roadCenterX, roadCenterY, roadRadius + roadWidth, 0, 2*Math.PI);
         ctx.arc(roadCenterX, roadCenterY, roadRadius, 0, 2*Math.PI, true);
         ctx.fill();
-
-        ctx.strokeStyle = '#a4b0be';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([10, 15]);
-        ctx.beginPath();
-        ctx.arc(roadCenterX, roadCenterY, roadRadius + CAR_LANE * LANE_WIDTH, 0, 2 * Math.PI);
-        ctx.stroke();
+        ctx.strokeStyle = '#a4b0be'; ctx.lineWidth = 1; ctx.setLineDash([10, 15]);
+        ctx.beginPath(); ctx.arc(roadCenterX, roadCenterY, roadRadius + CAR_LANE * LANE_WIDTH, 0, 2 * Math.PI); ctx.stroke();
         ctx.setLineDash([]);
-        
-        ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(roadCenterX, roadCenterY, roadRadius + BUS_LANE * LANE_WIDTH + LANE_WIDTH -1, 0, 2 * Math.PI);
-        ctx.stroke();
-
+        ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(roadCenterX, roadCenterY, roadRadius + BUS_LANE * LANE_WIDTH + LANE_WIDTH -1, 0, 2*Math.PI); ctx.stroke();
         for(const id in junctions) {
             const j = junctions[id];
-            
-            // Draw separate ramps
-            ctx.lineWidth = LANE_WIDTH - 2;
-            ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+            ctx.lineWidth = LANE_WIDTH * 2; ctx.strokeStyle = 'rgba(75, 85, 99, 0.7)';
+            ctx.beginPath(); ctx.moveTo(j.carRamp.start.x, j.carRamp.start.y); ctx.quadraticCurveTo(j.carRamp.control.x, j.carRamp.control.y, j.carRamp.mergePoint.x, j.carRamp.mergePoint.y); ctx.stroke();
+            ctx.lineWidth = 1; ctx.strokeStyle = '#a4b0be'; ctx.setLineDash([10, 10]);
             ctx.beginPath();
-            ctx.moveTo(j.carRamp.start.x, j.carRamp.start.y);
-            ctx.quadraticCurveTo(j.carRamp.control.x, j.carRamp.control.y, j.carRamp.mergePoint.x, j.carRamp.mergePoint.y);
-            ctx.stroke();
-            
-            ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
-            ctx.beginPath();
-            ctx.moveTo(j.busRamp.start.x, j.busRamp.start.y);
-            ctx.quadraticCurveTo(j.busRamp.control.x, j.busRamp.control.y, j.busRamp.mergePoint.x, j.busRamp.mergePoint.y);
-            ctx.stroke();
+            const centerStart = {x: (j.carRamp.start.x+j.busRamp.start.x)/2, y: (j.carRamp.start.y+j.busRamp.start.y)/2};
+            const centerControl = {x: (j.carRamp.control.x+j.busRamp.control.x)/2, y: (j.carRamp.control.y+j.busRamp.control.y)/2};
+            const centerMerge = {x: (j.carRamp.mergePoint.x+j.busRamp.mergePoint.x)/2, y: (j.carRamp.mergePoint.y+j.busRamp.mergePoint.y)/2};
+            ctx.moveTo(centerStart.x, centerStart.y); ctx.quadraticCurveTo(centerControl.x, centerControl.y, centerMerge.x, centerMerge.y); ctx.stroke();
+            ctx.setLineDash([]);
         }
     }
 
@@ -435,13 +406,13 @@
         if (!isRushHour) return;
 
         const carCount = vehicles.filter(v => v.type === 'car').length;
-        if (carCount < parseInt(carsSlider.value) && Math.random() < 0.1) {
+        if (carCount < parseInt(carsSlider.value) && Math.random() < 0.2) {
             const originId = Object.keys(junctions)[Math.floor(Math.random()*4)];
             vehicles.push(new Vehicle('car', originId));
         }
 
         const busCount = vehicles.filter(v => v.type === 'bus').length;
-        if (busCount < parseInt(busesSlider.value) && Math.random() < 0.03) {
+        if (busCount < parseInt(busesSlider.value) && Math.random() < 0.05) {
             const originId = Object.keys(junctions)[Math.floor(Math.random()*4)];
             vehicles.push(new Vehicle('bus', originId));
         }
@@ -452,12 +423,10 @@
         const dt = SIM_TICK_RATE / 1000;
         simTime += dt * (3600 / SECONDS_PER_HOUR);
         manageVehiclePopulation();
-
         drawBackground();
         vehicles.forEach(v => v.update(dt, vehicles));
         vehicles = vehicles.filter(v => v.state !== VEHICLE_STATES.REMOVED);
         vehicles.forEach(v => v.draw());
-
         updateStats();
         animationFrameId = requestAnimationFrame(animate);
     }
@@ -471,7 +440,32 @@
         
         const queuingCount = vehicles.filter(v => v.state === VEHICLE_STATES.MERGING && v.speed < 1).length;
         queuingEl.textContent = queuingCount;
-        tripsEl.textContent = totalTrips.toLocaleString();
+
+        const formatTime = (timeInSeconds) => {
+            if (isNaN(timeInSeconds) || timeInSeconds <= 0) return "0:00";
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = Math.floor(timeInSeconds % 60);
+            return `${String(minutes).padStart(1, '0')}:${String(seconds).padStart(2, '0')}`;
+        };
+
+        const avgCarTime = totalTravelTime.car / (totalTrips.car || 1);
+        const avgBusTime = totalTravelTime.bus / (totalTrips.bus || 1);
+        avgTimeCarEl.textContent = formatTime(avgCarTime);
+        avgTimeBusEl.textContent = formatTime(avgBusTime);
+        
+        let commutingCarCount = 0;
+        let commutingBusCount = 0;
+        vehicles.forEach(v => {
+            if (v.type === 'car') commutingCarCount += v.config.passengers;
+            else commutingBusCount += v.config.passengers;
+        });
+        commutingCarEl.textContent = Math.round(commutingCarCount).toLocaleString();
+        commutingBusEl.textContent = Math.round(commutingBusCount).toLocaleString();
+        
+        const arrivedTotal = Math.round(totalPassengers.car + totalPassengers.bus);
+        passengersArrivedEl.textContent = arrivedTotal.toLocaleString();
+        passengersCarEl.textContent = Math.round(totalPassengers.car).toLocaleString();
+        passengersBusEl.textContent = Math.round(totalPassengers.bus).toLocaleString();
 
         const hours = Math.floor(simTime / SECONDS_PER_HOUR) % 24;
         const minutes = Math.floor((simTime % SECONDS_PER_HOUR) / SECONDS_PER_HOUR * 60);
@@ -484,9 +478,20 @@
         startStopBtn.textContent = 'Start';
         startStopBtn.classList.replace('bg-red-600', 'bg-indigo-600');
         simTime = 7 * SECONDS_PER_HOUR;
-        totalTrips = 0;
+        totalTrips = { car: 0, bus: 0 };
+        totalTravelTime = { car: 0, bus: 0 };
+        totalPassengers = { car: 0, bus: 0 };
         vehicles = [];
         defineJunctions();
+
+        const busTotal = parseInt(busesSlider.value);
+        for(let i = 0; i < busTotal; i++) {
+            const originId = Object.keys(junctions)[i % 4];
+            const bus = new Vehicle('bus', originId)
+            bus.distOnRamp = -i * SAFE_DISTANCE_METERS * PIXELS_PER_METER;
+            vehicles.push(bus);
+        }
+
         drawBackground();
         updateStats();
     }
