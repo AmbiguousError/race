@@ -320,7 +320,7 @@
             
             const RAW_TRACKS = {
                 "Bahrain": { points: [ {x:864, y:500}, {x:864, y:409}, {x:864, y:318}, {x:864, y:227}, {x:864, y:136}, {x:854, y:91}, {x:828, y:62}, {x:787, y:48}, {x:741, y:51}, {x:700, y:70}, {x:672, y:98}, {x:658, y:139}, {x:653, y:230}, {x:648, y:321}, {x:643, y:412}, {x:628, y:456}, {x:594, y:478}, {x:546, y:476}, {x:504, y:452}, {x:479, y:412}, {x:477, y:361}, {x:496, y:320}, {x:524, y:286}, {x:534, y:241}, {x:520, y:204}, {x:483, y:180}, {x:436, y:182}, {x:387, y:206}, {x:344, y:244}, {x:304, y:286}, {x:248, y:292}, {x:192, y:298}, {x:141, y:316}, {x:104, y:352}, {x:84, y:404}, {x:86, y:458}, {x:112, y:508}, {x:154, y:542}, {x:214, y:558}, {x:306, y:564}, {x:398, y:564}, {x:490, y:564}, {x:552, y:544}, {x:591, y:520}, {x:644, y:514}, {x:736, y:514}, {x:828, y:508} ], reverse: true },
-                "Monza": { points: [ {x:200, y:100}, {x:850, y:100}, {x:950, y:200}, {x:950, y:400}, {x:850, y:500}, {x:200, y:500}, {x:150, y:450}, {x:150, y:350},{x:100, y:300},{x:150, y:250},{x:150, y:150} ], reverse: false },
+                "Monza": { points: [ {x:430, y:500}, {x:430, y:120}, {x:300, y:150}, {x:250, y:320}, {x:150, y:320}, {x:100, y:370}, {x:100, y:450}, {x:150, y:500}, {x:250, y:500}, {x:300, y:450}, {x:650, y:450}, {x:750, y:500}, {x:850, y:500}, {x:900, y:450}, {x:900, y:150}, {x:850, y:100}, {x:750, y:100}, {x:700, y:150}, {x:700, y:250}, {x:650, y:300}, {x:550, y:300}, {x:500, y:250}, {x:500, y:120}, {x:470, y:90}, {x:430, y:90} ], reverse: true },
                 "Silverstone": { points: [ {x:350,y:480},{x:550,y:480},{x:620,y:410},{x:800,y:400},{x:900,y:300},{x:900,y:200},{x:800,y:100},{x:200,y:100},{x:100,y:200},{x:150,y:300},{x:300,y:300},{x:350,y:350},{x:250,y:450} ], reverse: false },
                 "Suzuka": { points: [ {x:480,y:200},{x:550,y:270},{x:520,y:350},{x:400,y:400},{x:250,y:380},{x:150,y:300},{x:200,y:200},{x:300,y:150},{x:450,y:150},{x:600,y:180},{x:750,y:180},{x:850,y:250},{x:800,y:350},{x:700,y:420},{x:550,y:420},{x:480,y:350} ], reverse: true },
             };
@@ -439,7 +439,7 @@
                     const currentSegment = trackPath[Math.floor(car.progress) % TRACK_LENGTH];
                     const speedMod = currentSegment ? currentSegment.speedModifier : 1.0;
 
-                    let baseSpeed = car.team.basePace * grip * push.paceEffect * wf * speedMod * 2;
+                    let baseSpeed = car.team.basePace * grip * push.paceEffect * wf * speedMod * 1.5;
                     
                     if(gameState.safetyCar.deployed) { baseSpeed *= 0.5; }
 
@@ -648,9 +648,9 @@
                             gapText = `+${lapsDown} Lap${lapsDown > 1 ? 's' : ''}`;
                         } else {
                            const timeDiff = car.lapStartTime > leader.lapStartTime ? (car.lapStartTime - leader.lapStartTime) : 0;
-                           const distanceOnTrackDiff = leader.progress - car.progress;
+                           const distanceOnTrackDiff = leader.totalProgress - car.totalProgress;
                            const avgSpeed = (leader.speed + car.speed)/2 || 1;
-                           const timeGap = timeDiff + (distanceOnTrackDiff / (avgSpeed*FPS) * TIME_SCALE_FACTOR);
+                           const timeGap = (distanceOnTrackDiff / (avgSpeed * FPS / TIME_SCALE_FACTOR));
                            gapText = `+${Math.max(0,timeGap).toFixed(2)}s`;
                         }
                     }
@@ -683,5 +683,6 @@
     </script>
 </body>
 </html>
+
 
 
