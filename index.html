@@ -5,31 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>F1 Race Simulator</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #E5E7EB;
+        }
+
+        /* Infographic Styles */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        /* Simulator Styles */
+        #simulator-container {
             background-color: #212529;
         }
-
-        #intro-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
         #setup-screen, #race-screen {
             padding-top: 1rem;
             padding-bottom: 1rem;
             max-width: 1200px;
         }
-
-        /* Player Header */
         #player-header .card-body {
             gap: 1.5rem;
         }
@@ -39,8 +46,6 @@
         #player-driver-name {
             text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
         }
-
-        /* Commentary Box */
         .commentary-box {
             height: 140px;
             background-color: #111;
@@ -50,15 +55,8 @@
             font-size: 0.8rem;
             border-top: 1px solid #444;
         }
-        .commentary-box p {
-            margin-bottom: 5px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #333;
-        }
-        .commentary-box p:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
+        .commentary-box p { margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #333; }
+        .commentary-box p:last-child { border-bottom: none; margin-bottom: 0; }
         .commentary-fastest-lap { color: #9C27B0; font-weight: bold; }
         .commentary-pit-stop { color: #FFC107; }
         .commentary-overtake { color: #4CAF50; }
@@ -66,191 +64,220 @@
         .commentary-safety-car { color: #FFEB3B; font-weight: bold; }
         .commentary-accident { color: #f44336; font-weight: bold; }
         .commentary-weather { color: #03a9f4; font-weight: bold; }
-
-        /* Race Graphics */
-        #race-container {
-            width: 100%;
-            border-radius: .375rem;
-            overflow: hidden;
-            line-height: 0; 
-        }
-
-        #race-track {
-            display: block;
-            width: 100%;
-            height: auto;
-            background-color: #1a472a;
-        }
-        
-        #weather-overlay {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background-color: rgba(0,0,0,0.5);
-            padding: 5px 10px;
-            border-radius: 5px;
-            color: white;
-            font-size: 1.2em;
-        }
-
-        /* Standings */
-        #standings-container {
-            overflow-x: auto;
-        }
-        #standings-table td, #standings-table th {
-            white-space: nowrap;
-        }
-        .player-row {
-            background-color: rgba(0, 111, 98, 0.5) !important;
-            font-weight: bold;
-        }
-        .tyre-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-            box-shadow: 0 0 3px black;
-            vertical-align: middle;
-        }
-
-        /* Corrected Button Positioning */
-        #audio-toggle-button {
-            position: absolute;
-            top: 0.75rem;
-            right: 0.75rem;
-            z-index: 10;
-        }
+        #race-container { width: 100%; border-radius: .375rem; overflow: hidden; line-height: 0; }
+        #race-track { display: block; width: 100%; height: auto; background-color: #1a472a; }
+        #weather-overlay { position: absolute; top: 10px; left: 10px; background-color: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; color: white; font-size: 1.2em; }
+        #standings-container { overflow-x: auto; }
+        #standings-table td, #standings-table th { white-space: nowrap; }
+        .player-row { background-color: rgba(0, 111, 98, 0.5) !important; font-weight: bold; }
+        .tyre-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; box-shadow: 0 0 3px black; vertical-align: middle; }
+        #audio-toggle-button { position: absolute; top: 0.75rem; right: 0.75rem; z-index: 10; }
     </style>
 </head>
-<body class="bg-dark text-light">
+<body>
 
-    <div id="intro-screen">
-        <div class="text-center">
-            <h1 class="display-3">F1 Race Simulator</h1>
-            <p class="lead">Experience the thrill of Formula 1</p>
-            <button id="start-setup-button" class="btn btn-primary btn-lg mt-3">Start Your Engine</button>
+    <!-- Infographic Landing Screen -->
+    <div id="infographic-screen">
+        <div class="container mx-auto p-4 md:p-8">
+            <header class="text-center py-8 border-b-2 border-gray-700 mb-12">
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight" style="color: #FF4E50;">F1 Race Simulator</h1>
+                <p class="mt-4 text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">A browser-based strategy game where every decision counts. Manage your tyres, pace, and pit stops to dominate the track in a dynamic racing world.</p>
+                 <button id="start-simulator-button" class="btn btn-primary btn-lg mt-8" style="background-color: #FF4E50; border-color: #FF4E50;">Start Your Engine</button>
+            </header>
+            <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="md:col-span-2 lg:col-span-3 bg-gray-800 rounded-lg shadow-xl p-6 flex flex-col md:flex-row items-center gap-8">
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold mb-2" style="color: #FC913A;">Your Race, Your Strategy</h2>
+                        <p class="text-gray-400">Success isn't just about speed; it's about intelligent decision-making. As team principal and driver, you control the key elements that lead to victory or defeat. Balancing aggression with preservation is the name of the game.</p>
+                    </div>
+                    <div class="flex-1 grid grid-cols-3 gap-4 text-center w-full">
+                        <div class="bg-gray-900 p-4 rounded-lg">
+                            <span class="text-4xl">⚙️</span>
+                            <h3 class="font-semibold mt-2">Push Levels</h3>
+                            <p class="text-xs text-gray-500">Attack or Conserve</p>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-lg">
+                            <span class="text-4xl">🏁</span>
+                            <h3 class="font-semibold mt-2">Pit Stops</h3>
+                            <p class="text-xs text-gray-500">Adapt Your Strategy</p>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-lg">
+                            <span class="text-4xl">🔘</span>
+                            <h3 class="font-semibold mt-2">Tyre Choice</h3>
+                            <p class="text-xs text-gray-500">Grip vs. Durability</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2 bg-gray-800 rounded-lg shadow-xl p-6">
+                    <h2 class="text-xl font-bold mb-1" style="color: #F9D423;">Tyre Compound Strategy</h2>
+                    <p class="text-sm text-gray-400 mb-4">Each tyre offers a trade-off between raw grip and long-term durability. Choosing the right compound at the right time is critical.</p>
+                    <div class="chart-container">
+                        <canvas id="tyreChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-lg shadow-xl p-6 flex flex-col justify-center">
+                    <h2 class="text-xl font-bold mb-1" style="color: #F9D423;">Survive the Chaos</h2>
+                    <p class="text-sm text-gray-400 mb-4">A race can change in an instant. Dynamic weather, accidents, and safety cars force you to react and adapt your strategy.</p>
+                    <div class="chart-container" style="height: 200px; max-height: 200px;">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+                    <p class="text-center text-xs text-gray-500 mt-2">Grip penalty for using dry tyres in the rain.</p>
+                </div>
+                <div class="md:col-span-2 lg:col-span-3 bg-gray-800 rounded-lg shadow-xl p-6">
+                    <h2 class="text-xl font-bold mb-1" style="color: #EDE574;">Constructor Base Performance</h2>
+                    <p class="text-sm text-gray-400 mb-4">Each of the 10 teams has a unique base pace, representing their car's fundamental performance level.</p>
+                    <div class="chart-container">
+                        <canvas id="teamPaceChart"></canvas>
+                    </div>
+                </div>
+                 <div class="md:col-span-2 lg:col-span-3 bg-gray-800 rounded-lg shadow-xl p-6">
+                    <h2 class="text-xl font-bold mb-4 text-center" style="color: #E1F5C4;">Battle on Iconic Circuits</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+                        <div class="border-2 border-dashed border-gray-600 p-4 rounded-lg">
+                            <h3 class="font-bold">Bahrain</h3>
+                        </div>
+                        <div class="border-2 border-dashed border-gray-600 p-4 rounded-lg">
+                            <h3 class="font-bold">Monza</h3>
+                        </div>
+                        <div class="border-2 border-dashed border-gray-600 p-4 rounded-lg">
+                            <h3 class="font-bold">Silverstone</h3>
+                        </div>
+                        <div class="border-2 border-dashed border-gray-600 p-4 rounded-lg">
+                            <h3 class="font-bold">Suzuka</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:col-span-2 lg:col-span-3 bg-gray-800 rounded-lg shadow-xl p-6">
+                    <h2 class="text-xl font-bold mb-4 text-center">Under the Hood: The Technology Stack</h2>
+                    <div class="flex flex-col md:flex-row justify-center items-center gap-4 text-center">
+                        <div class="bg-gray-900 p-4 rounded-lg"><p class="font-bold">HTML5</p></div>
+                        <p class="text-2xl font-mono text-gray-600">→</p>
+                        <div class="bg-gray-900 p-4 rounded-lg"><p class="font-bold">Tailwind CSS</p></div>
+                        <p class="text-2xl font-mono text-gray-600">→</p>
+                        <div class="bg-gray-900 p-4 rounded-lg"><p class="font-bold">JavaScript (ES6+)</p></div>
+                        <p class="text-2xl font-mono text-gray-600">→</p>
+                        <div class="bg-gray-900 p-4 rounded-lg"><p class="font-bold">Web Audio API</p></div>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
 
-    <div id="setup-screen" class="container text-center d-none">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
-                <div class="card bg-secondary text-light shadow-lg">
-                    <button id="audio-toggle-button" class="btn btn-sm btn-outline-light">🎵 Play Music</button>
-                    <div class="card-body">
-                        <div id="team-selection-view">
-                            <h1 class="card-title">Select Your Team</h1>
-                            <p class="card-text">Choose your constructor to begin.</p>
-                            <div id="team-selection" class="d-grid gap-2"></div>
-                        </div>
-                        <div id="driver-selection-view" class="d-none">
-                             <h1 class="card-title">Select Your Driver</h1>
-                            <p class="card-text">Who will take the wheel?</p>
-                            <div id="driver-selection" class="d-grid gap-2"></div>
-                        </div>
-                        <div id="track-selection-view" class="d-none">
-                            <h1 class="card-title">Select a Track</h1>
-                            <div id="track-selection" class="d-grid gap-2"></div>
-                        </div>
-                        <div id="tyre-selection-view" class="d-none">
-                            <h1 class="card-title">Select Starting Tyres</h1>
-                            <p class="card-text">Choose your tyres for the race start.</p>
-                            <div id="starting-tyre-choices" class="d-grid gap-2 d-md-flex justify-content-md-center">
-                                <button class="btn btn-outline-danger" data-tyre="Soft">Soft</button>
-                                <button class="btn btn-outline-warning" data-tyre="Medium">Medium</button>
-                                <button class="btn btn-outline-light" data-tyre="Hard">Hard</button>
+    <!-- Simulator Application -->
+    <div id="simulator-container" class="d-none">
+        <div id="setup-screen" class="container text-center">
+             <div class="row justify-content-center">
+                <div class="col-md-8 col-lg-6">
+                    <div class="card bg-secondary text-light shadow-lg">
+                        <button id="audio-toggle-button" class="btn btn-sm btn-outline-light">🎵 Play Music</button>
+                        <div class="card-body">
+                            <div id="team-selection-view">
+                                <h1 class="card-title">Select Your Team</h1>
+                                <p class="card-text">Choose your constructor to begin.</p>
+                                <div id="team-selection" class="d-grid gap-2"></div>
+                            </div>
+                            <div id="driver-selection-view" class="d-none">
+                                <h1 class="card-title">Select Your Driver</h1>
+                                <p class="card-text">Who will take the wheel?</p>
+                                <div id="driver-selection" class="d-grid gap-2"></div>
+                            </div>
+                            <div id="track-selection-view" class="d-none">
+                                <h1 class="card-title">Select a Track</h1>
+                                <div id="track-selection" class="d-grid gap-2"></div>
+                            </div>
+                            <div id="tyre-selection-view" class="d-none">
+                                <h1 class="card-title">Select Starting Tyres</h1>
+                                <p class="card-text">Choose your tyres for the race start.</p>
+                                <div id="starting-tyre-choices" class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                    <button class="btn btn-outline-danger" data-tyre="Soft">Soft</button>
+                                    <button class="btn btn-outline-warning" data-tyre="Medium">Medium</button>
+                                    <button class="btn btn-outline-light" data-tyre="Hard">Hard</button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <main id="race-screen" class="container-fluid d-none">
-        <header id="player-header" class="card bg-secondary text-light mb-3 shadow">
-            <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
-                <div class="player-info">
-                    <h5 id="player-driver-name" class="mb-0">Driver Name</h5>
-                    <span id="player-team-name" class="text-muted">Team Name</span>
+        <main id="race-screen" class="container-fluid d-none">
+            <header id="player-header" class="card bg-secondary text-light mb-3 shadow">
+                <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+                    <div class="player-info">
+                        <h5 id="player-driver-name" class="mb-0">Driver Name</h5>
+                        <span id="player-team-name" class="text-muted">Team Name</span>
+                    </div>
+                    <div class="player-status text-center">
+                        <div><strong>Lap:</strong> <span id="lap-counter">1 / 50</span></div>
+                        <div><strong>Pos:</strong> <span id="player-position">1 / 20</span></div>
+                        <div><strong>Tyres:</strong> <span id="player-tyre-compound">Medium</span> (<span id="player-tyre-wear">100%</span>)</div>
+                    </div>
+                    <div class="player-controls">
+                        <label for="push-slider" class="form-label mb-0"><strong>Push:</strong> <span id="player-push-text">Balanced</span></label>
+                        <input type="range" class="form-range" id="push-slider" min="1" max="5" value="3" step="1">
+                        <button id="pit-button" class="btn btn-danger btn-sm w-100">Request Pit Stop</button>
+                    </div>
                 </div>
-                <div class="player-status text-center">
-                    <div><strong>Lap:</strong> <span id="lap-counter">1 / 50</span></div>
-                    <div><strong>Pos:</strong> <span id="player-position">1 / 20</span></div>
-                    <div><strong>Tyres:</strong> <span id="player-tyre-compound">Medium</span> (<span id="player-tyre-wear">100%</span>)</div>
+            </header>
+            <div class="card bg-secondary text-light mb-3 shadow">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Live Commentary</h5>
+                    <div id="race-status" class="d-flex align-items-center"></div>
                 </div>
-                <div class="player-controls">
-                    <label for="push-slider" class="form-label mb-0"><strong>Push:</strong> <span id="player-push-text">Balanced</span></label>
-                    <input type="range" class="form-range" id="push-slider" min="1" max="5" value="3" step="1">
-                    <button id="pit-button" class="btn btn-danger btn-sm w-100">Request Pit Stop</button>
+                <div id="commentary-box" class="commentary-box card-body"></div>
+            </div>
+            <div id="race-container" class="shadow mb-3 position-relative">
+                <canvas id="race-track"></canvas>
+                <div id="weather-overlay"></div>
+            </div>
+            <div class="card bg-secondary text-light shadow">
+                <div class="card-header"><h5>Live Standings</h5></div>
+                <div id="standings-container" class="card-body p-0">
+                    <table id="standings-table" class="table table-dark table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Driver</th>
+                                <th>Team</th>
+                                <th>Gap</th>
+                                <th>Last Lap</th>
+                                <th>Tyre</th>
+                                <th>Pits</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
-        </header>
-
-        <div class="card bg-secondary text-light mb-3 shadow">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Live Commentary</h5>
-                <div id="race-status" class="d-flex align-items-center"></div>
-            </div>
-            <div id="commentary-box" class="commentary-box card-body"></div>
-        </div>
-
-        <div id="race-container" class="shadow mb-3 position-relative">
-            <canvas id="race-track"></canvas>
-            <div id="weather-overlay"></div>
-        </div>
-        
-        <div class="card bg-secondary text-light shadow">
-             <div class="card-header"><h5>Live Standings</h5></div>
-             <div id="standings-container" class="card-body p-0">
-                 <table id="standings-table" class="table table-dark table-sm table-striped mb-0">
-                    <thead>
-                        <tr>
-                            <th>Pos</th>
-                            <th>Driver</th>
-                            <th>Team</th>
-                            <th>Gap</th>
-                            <th>Last Lap</th>
-                            <th>Tyre</th>
-                            <th>Pits</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-
-    <div class="modal fade" id="pit-stop-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-secondary text-light">
-                <div class="modal-header"><h5 class="modal-title">Pit Stop: Choose Tyres</h5></div>
-                <div class="modal-body text-center">
-                    <p>Select your next tyre compound.</p>
-                    <div id="pit-tyre-choices" class="d-grid gap-2 d-md-flex justify-content-md-center">
-                         <button class="btn btn-outline-danger" data-tyre="Soft">Soft</button>
-                         <button class="btn btn-outline-warning" data-tyre="Medium">Medium</button>
-                         <button class="btn btn-outline-light" data-tyre="Hard">Hard</button>
-                         <button class="btn btn-outline-info" data-tyre="Intermediate">Intermediate</button>
-                         <button class="btn btn-outline-primary" data-tyre="Wet">Wet</button>
+        </main>
+        <div class="modal fade" id="pit-stop-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-secondary text-light">
+                    <div class="modal-header"><h5 class="modal-title">Pit Stop: Choose Tyres</h5></div>
+                    <div class="modal-body text-center">
+                        <p>Select your next tyre compound.</p>
+                        <div id="pit-tyre-choices" class="d-grid gap-2 d-md-flex justify-content-md-center">
+                            <button class="btn btn-outline-danger" data-tyre="Soft">Soft</button>
+                            <button class="btn btn-outline-warning" data-tyre="Medium">Medium</button>
+                            <button class="btn btn-outline-light" data-tyre="Hard">Hard</button>
+                            <button class="btn btn-outline-info" data-tyre="Intermediate">Intermediate</button>
+                            <button class="btn btn-outline-primary" data-tyre="Wet">Wet</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-    
-    <div class="modal fade" id="race-finish-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-secondary text-light">
-                <div class="modal-header border-0"><h5 id="race-finish-title" class="modal-title">🏁 Race Finished! 🏁</h5></div>
-                <div class="modal-body text-center">
-                    <h2 id="winner-name"></h2>
-                    <p id="race-finish-message">Wins the race!</p>
-                </div>
-                <div class="modal-footer justify-content-center border-0">
-                    <button id="continue-watching-button" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continue Watching</button>
-                    <button id="new-race-button" type="button" class="btn btn-primary">New Race</button>
+        <div class="modal fade" id="race-finish-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-secondary text-light">
+                    <div class="modal-header border-0"><h5 id="race-finish-title" class="modal-title">🏁 Race Finished! 🏁</h5></div>
+                    <div class="modal-body text-center">
+                        <h2 id="winner-name"></h2>
+                        <p id="race-finish-message">Wins the race!</p>
+                    </div>
+                    <div class="modal-footer justify-content-center border-0">
+                        <button id="continue-watching-button" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continue Watching</button>
+                        <button id="new-race-button" type="button" class="btn btn-primary">New Race</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -259,430 +286,450 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM ELEMENTS -----
-            const introScreen = document.getElementById('intro-screen');
-            const startSetupButton = document.getElementById('start-setup-button');
-            const setupScreen = document.getElementById('setup-screen');
-            const teamSelectionView = document.getElementById('team-selection-view');
-            const teamSelectionContainer = document.getElementById('team-selection');
-            const driverSelectionView = document.getElementById('driver-selection-view');
-            const driverSelectionContainer = document.getElementById('driver-selection');
-            const trackSelectionView = document.getElementById('track-selection-view');
-            const trackSelectionContainer = document.getElementById('track-selection');
-            const tyreSelectionView = document.getElementById('tyre-selection-view');
-            const startingTyreChoices = document.getElementById('starting-tyre-choices');
-            const audioToggleButton = document.getElementById('audio-toggle-button');
-            const raceScreen = document.getElementById('race-screen');
-            const canvas = document.getElementById('race-track');
-            const ctx = canvas.getContext('2d');
-            const standingsTableBody = document.querySelector("#standings-table tbody");
-            const commentaryBox = document.getElementById('commentary-box');
-            const pitStopModal = new bootstrap.Modal(document.getElementById('pit-stop-modal'));
-            const raceFinishModal = new bootstrap.Modal(document.getElementById('race-finish-modal'));
-            const winnerNameEl = document.getElementById('winner-name');
-            const raceFinishTitleEl = document.getElementById('race-finish-title');
-            const raceFinishMessageEl = document.getElementById('race-finish-message');
-            const playerDriverNameEl = document.getElementById('player-driver-name');
-            const playerTeamNameEl = document.getElementById('player-team-name');
-            const lapCounter = document.getElementById('lap-counter');
-            const playerPosition = document.getElementById('player-position');
-            const playerTyreCompound = document.getElementById('player-tyre-compound');
-            const playerTyreWear = document.getElementById('player-tyre-wear');
-            const playerPushText = document.getElementById('player-push-text');
-            const pushSlider = document.getElementById('push-slider');
-            const pitButton = document.getElementById('pit-button');
-            const pitTyreChoices = document.getElementById('pit-tyre-choices');
-            const weatherOverlay = document.getElementById('weather-overlay');
-            const raceStatus = document.getElementById('race-status');
-            const continueWatchingButton = document.getElementById('continue-watching-button');
-            const newRaceButton = document.getElementById('new-race-button');
 
-            // =======================================================================
-            // --- WEB AUDIO MUSIC ENGINE ---
-            // =======================================================================
-            let audioCtx, masterGain, isAudioInitialized = false, isMusicPlaying = false;
-            const NOTE_FREQUENCIES = { 'G3': 196.00, 'C4': 261.63, 'Dsharp4': 311.13, 'G4': 392.00, 'Gsharp4': 415.30, 'Asharp4': 466.16 };
-            const BPM = 124, BEAT_DURATION = 60 / BPM;
-            const MELODY = [ { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Asharp4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Gsharp4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Asharp4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Gsharp4', duration: 0.25 } ];
-            function initAudio() { if (isAudioInitialized) return; audioCtx = new (window.AudioContext || window.webkitAudioContext)(); masterGain = audioCtx.createGain(); masterGain.connect(audioCtx.destination); masterGain.gain.value = 1; isAudioInitialized = true; }
-            function playNote(note, startTime, duration) { if (!audioCtx) return; const f = NOTE_FREQUENCIES[note]; if (!f) return; const o = audioCtx.createOscillator(), n = audioCtx.createGain(); o.connect(n); n.connect(masterGain); o.type = 'square'; o.frequency.setValueAtTime(f, startTime); n.gain.setValueAtTime(0, startTime); n.gain.linearRampToValueAtTime(0.5, startTime + 0.01); n.gain.linearRampToValueAtTime(0, startTime + duration); o.start(startTime); o.stop(startTime + duration); }
-            function playSong() { if (!isAudioInitialized || !isMusicPlaying) return; let t = audioCtx.currentTime; MELODY.forEach(n => { const d = n.duration * BEAT_DURATION; playNote(n.note, t, d); t += d; }); setTimeout(playSong, (t - audioCtx.currentTime) * 1000); }
-
-            // =======================================================================
-            // --- SIMULATOR CODE ---
-            // =======================================================================
-            const TOTAL_LAPS = 50, CAR_COUNT = 20, FPS = 60, TIME_SCALE_FACTOR = 8, ORIGINAL_CANVAS_WIDTH = 1000;
-            let scaleFactor = 1, selectedTeamName = '', selectedDriverName = '', selectedTrackName = '';
-            let gameState = { raceActive: false, raceFinished: false, raceTime: 0, cars: [], fastestLap: { time: Infinity, driver: '' }, previousOrder: [], safetyCar: { deployed: false, laps: 0, progress: -5 }, weather: { condition: 'Dry', grip: 1.0, nextChange: 0 } };
-            const TEAMS = { "Ferrari": { color: "#DC0000", basePace: 1.02, drivers: ["Leclerc", "Hamilton"] }, "Red Bull": { color: "#0600EF", basePace: 1.03, drivers: ["Verstappen", "Perez"] }, "McLaren": { color: "#FF8700", basePace: 1.015, drivers: ["Norris", "Piastri"] }, "Mercedes": { color: "#00D2BE", basePace: 1.00, drivers: ["Russell", "Antonelli"] }, "Aston Martin": { color: "#006F62", basePace: 0.99, drivers: ["Alonso", "Stroll"] }, "Audi": { color: "#D90000", basePace: 0.97, drivers: ["Hulkenberg", "Sainz"] }, "Alpine": { color: "#0090FF", basePace: 0.96, drivers: ["Gasly", "Doohan"] }, "Williams": { color: "#005AFF", basePace: 0.95, drivers: ["Albon", "Bottas"] }, "Haas": { color: "#BDBDBD", basePace: 0.94, drivers: ["Bearman", "Ocon"] }, "RB": { color: "#003060", basePace: 0.965, drivers: ["Tsunoda", "Lawson"] } };
-            const TYRE_COMPOUNDS = { Soft: { grip: 1.06, degradation: 0.0190, color: 'red', type: 'dry' }, Medium: { grip: 1.00, degradation: 0.0105, color: 'yellow', type: 'dry' }, Hard: { grip: 0.92, degradation: 0.0060, color: 'white', type: 'dry' }, Intermediate: { grip: 0.85, degradation: 0.01, color: 'green', type: 'wet' }, Wet: { grip: 0.75, degradation: 0.008, color: 'blue', type: 'wet' } };
-            const PUSH_LEVELS = { 1: { name: "Conserve", paceEffect: 0.96, tyreEffect: 0.6 }, 2: { name: "Standard", paceEffect: 0.98, tyreEffect: 0.8 }, 3: { name: "Balanced", paceEffect: 1.00, tyreEffect: 1.0 }, 4: { name: "Pushing", paceEffect: 1.02, tyreEffect: 1.5 }, 5: { name: "Attack", paceEffect: 1.04, tyreEffect: 2.2 } };
-            
-            const RAW_TRACKS = {
-                "Bahrain": { points: [ {x:864, y:500}, {x:864, y:409}, {x:864, y:318}, {x:864, y:227}, {x:864, y:136}, {x:854, y:91}, {x:828, y:62}, {x:787, y:48}, {x:741, y:51}, {x:700, y:70}, {x:672, y:98}, {x:658, y:139}, {x:653, y:230}, {x:648, y:321}, {x:643, y:412}, {x:628, y:456}, {x:594, y:478}, {x:546, y:476}, {x:504, y:452}, {x:479, y:412}, {x:477, y:361}, {x:496, y:320}, {x:524, y:286}, {x:534, y:241}, {x:520, y:204}, {x:483, y:180}, {x:436, y:182}, {x:387, y:206}, {x:344, y:244}, {x:304, y:286}, {x:248, y:292}, {x:192, y:298}, {x:141, y:316}, {x:104, y:352}, {x:84, y:404}, {x:86, y:458}, {x:112, y:508}, {x:154, y:542}, {x:214, y:558}, {x:306, y:564}, {x:398, y:564}, {x:490, y:564}, {x:552, y:544}, {x:591, y:520}, {x:644, y:514}, {x:736, y:514}, {x:828, y:508} ], reverse: true },
-                "Monza": { points: [ {x:430, y:500}, {x:430, y:120}, {x:300, y:150}, {x:250, y:320}, {x:150, y:320}, {x:100, y:370}, {x:100, y:450}, {x:150, y:500}, {x:250, y:500}, {x:300, y:450}, {x:650, y:450}, {x:750, y:500}, {x:850, y:500}, {x:900, y:450}, {x:900, y:150}, {x:850, y:100}, {x:750, y:100}, {x:700, y:150}, {x:700, y:250}, {x:650, y:300}, {x:550, y:300}, {x:500, y:250}, {x:500, y:120}, {x:470, y:90}, {x:430, y:90} ], reverse: true },
-                "Silverstone": { points: [ {x:350,y:480},{x:550,y:480},{x:620,y:410},{x:800,y:400},{x:900,y:300},{x:900,y:200},{x:800,y:100},{x:200,y:100},{x:100,y:200},{x:150,y:300},{x:300,y:300},{x:350,y:350},{x:250,y:450} ], reverse: false },
-                "Suzuka": { points: [ {x:480,y:200},{x:550,y:270},{x:520,y:350},{x:400,y:400},{x:250,y:380},{x:150,y:300},{x:200,y:200},{x:300,y:150},{x:450,y:150},{x:600,y:180},{x:750,y:180},{x:850,y:250},{x:800,y:350},{x:700,y:420},{x:550,y:420},{x:480,y:350} ], reverse: true },
+            // --- GLOBAL UI CONTROL ---
+            const infographicScreen = document.getElementById('infographic-screen');
+            const simulatorContainer = document.getElementById('simulator-container');
+            const startSimulatorButton = document.getElementById('start-simulator-button');
+            const TEAMS_DATA = { 
+                "McLaren": { color: "#FF8700", basePace: 1.03, drivers: ["Lando Norris", "Oscar Piastri"] },
+                "Ferrari": { color: "#DC0000", basePace: 1.02, drivers: ["Charles Leclerc", "Lewis Hamilton"] },
+                "Red Bull": { color: "#0600EF", basePace: 1.01, drivers: ["Max Verstappen", "Yuki Tsunoda"] },
+                "Mercedes": { color: "#00D2BE", basePace: 1.00, drivers: ["George Russell", "Kimi Antonelli"] },
+                "Williams": { color: "#005AFF", basePace: 0.98, drivers: ["Alex Albon", "Carlos Sainz"] },
+                "Aston Martin": { color: "#006F62", basePace: 0.97, drivers: ["Fernando Alonso", "Lance Stroll"] },
+                "Racing Bulls": { color: "#003060", basePace: 0.96, drivers: ["Liam Lawson", "Isack Hadjar"] },
+                "Sauber": { color: "#D90000", basePace: 0.95, drivers: ["Nico Hulkenberg", "Gabriel Bortoleto"] },
+                "Haas": { color: "#BDBDBD", basePace: 0.94, drivers: ["Oliver Bearman", "Esteban Ocon"] },
+                "Alpine": { color: "#0090FF", basePace: 0.93, drivers: ["Pierre Gasly", "Franco Colapinto"] }
             };
-            let trackPath = [];
-            let TRACK_LENGTH = 0;
-
-            function generateSplinePath(points, segmentsPerCurve = 10) {
-                const splinePoints = [];
-                const numPoints = points.length;
-
-                for (let i = 0; i < numPoints; i++) {
-                    const p0 = points[(i - 1 + numPoints) % numPoints];
-                    const p1 = points[i];
-                    const p2 = points[(i + 1) % numPoints];
-                    const p3 = points[(i + 2) % numPoints];
-
-                    for (let j = 0; j < segmentsPerCurve; j++) {
-                        const t = j / segmentsPerCurve;
-                        const t2 = t * t;
-                        const t3 = t2 * t;
-
-                        const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
-                        const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
-                        splinePoints.push({ x, y });
-                    }
-                }
-                
-                for (let i = 0; i < splinePoints.length; i++) {
-                    const p_prev = splinePoints[(i - 1 + splinePoints.length) % splinePoints.length];
-                    const p_curr = splinePoints[i];
-                    const p_next = splinePoints[(i + 1) % splinePoints.length];
-                    const v1 = { x: p_curr.x - p_prev.x, y: p_curr.y - p_prev.y };
-                    const v2 = { x: p_next.x - p_curr.x, y: p_next.y - p_curr.y };
-                    const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
-                    const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-                    if (mag1 > 0 && mag2 > 0) {
-                        const dot = v1.x * v2.x + v1.y * v2.y;
-                        const cosAngle = dot / (mag1 * mag2);
-                        const turnFactor = (Math.acos(Math.max(-1, Math.min(1, cosAngle)))) / Math.PI;
-                        splinePoints[i].speedModifier = 1.0 - 0.6 * turnFactor;
-                    } else {
-                        splinePoints[i].speedModifier = 1.0;
-                    }
-                }
-                return splinePoints;
-            }
-
-            function addCommentary(message, type = '', lap = 0) { const lapText = lap > 0 ? `(L${lap})` : ''; const p = document.createElement('p'); p.innerHTML = `<span class="text-muted">${lapText}</span> ${message}`; if(type) p.classList.add(`commentary-${type}`); commentaryBox.insertBefore(p, commentaryBox.firstChild); if (commentaryBox.children.length > 50) commentaryBox.removeChild(commentaryBox.lastChild); commentaryBox.scrollTop = 0; }
             
-            function initSetup() { 
-                for (const t in TEAMS) { const b = document.createElement('button'); b.className = 'btn btn-outline-light'; b.innerText = t; b.style.setProperty('--bs-btn-border-color', TEAMS[t].color); b.style.setProperty('--bs-btn-hover-bg', TEAMS[t].color); b.addEventListener('click', () => selectTeam(t)); teamSelectionContainer.appendChild(b); } 
-                for (const t in RAW_TRACKS) { const b = document.createElement('button'); b.className = 'btn btn-outline-light'; b.innerText = t; b.addEventListener('click', () => selectTrack(t)); trackSelectionContainer.appendChild(b); }
-            }
-            
-            function resizeCanvas() { const c = document.getElementById('race-container'); const r = 600 / 1000; canvas.width = c.clientWidth; canvas.height = c.clientWidth * r; scaleFactor = canvas.width / ORIGINAL_CANVAS_WIDTH; }
-            
-            function selectTeam(t) { selectedTeamName = t; driverSelectionContainer.innerHTML = ''; TEAMS[t].drivers.forEach(driver => { const b = document.createElement('button'); b.className = 'btn btn-outline-light'; b.innerText = driver; b.addEventListener('click', () => selectDriver(driver)); driverSelectionContainer.appendChild(b); }); teamSelectionView.classList.add('d-none'); driverSelectionView.classList.remove('d-none'); }
-
-            function selectDriver(d) { selectedDriverName = d; driverSelectionView.classList.add('d-none'); trackSelectionView.classList.remove('d-none'); }
-
-            function selectTrack(t) { selectedTrackName = t; let points = RAW_TRACKS[t].points; if (RAW_TRACKS[t].reverse) { points.reverse(); } trackPath = generateSplinePath(points, 20); TRACK_LENGTH = trackPath.length; trackSelectionView.classList.add('d-none'); tyreSelectionView.classList.remove('d-none'); }
-            function startRace(t) { addCommentary("IT'S LIGHTS OUT AND AWAY WE GO!", 'race-start'); setupScreen.classList.add('d-none'); raceScreen.classList.remove('d-none'); resizeCanvas(); initRace(t); }
-            
-            function initRace(playerTyre) { 
-                gameState.cars = []; 
-                let pool = []; 
-                for(const t in TEAMS) { TEAMS[t].drivers.forEach(d => pool.push({ team: t, driver: d })); }
-                
-                gameState.cars.push(createCar(0, selectedTeamName, selectedDriverName, true, playerTyre)); 
-                pool = pool.filter(d => d.driver !== selectedDriverName); 
-                
-                for (let i = 1; i < CAR_COUNT; i++) { const d_i = pool[i-1]; const r_t = ['Soft', 'Medium', 'Hard'][Math.floor(Math.random() * 3)]; gameState.cars.push(createCar(i, d_i.team, d_i.driver, false, r_t)); } 
-                
-                gameState.previousOrder = gameState.cars.map(c => c.id); 
-                gameState.raceActive = true; 
-                gameState.weather.nextChange = 10 + Math.random() * 10;
-                gameLoop(); 
-            }
-            
-            function createCar(id, teamName, driverName, isPlayer, startingTyre) { const parts = driverName.split(' '); const initials = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : driverName.substring(0, 2).toUpperCase(); const row = Math.floor(id / 2); const progress = -row * 25; return { id, isPlayer, teamName, driverName, initials, team: TEAMS[teamName], progress, lateralOffset: (id % 2 === 0 ? -1 : 1) * 5, totalProgress: progress, lap: 1, speed: 0, pushLevel: 3, tyre: { ...TYRE_COMPOUNDS[startingTyre], wear: 100, compoundName: startingTyre }, pitting: false, pitRequest: false, pitStopTime: 0, lapStartTime: 0, lastLapTime: 0, retired: false, pitStops: 0 }; }
-            
-            function gameLoop() { if (!gameState.raceActive) return; gameState.raceTime += (1 / FPS) * TIME_SCALE_FACTOR; updateState(); render(); updateUI(); requestAnimationFrame(gameLoop); }
-
-            function updateState() { 
-                if (gameState.raceFinished && !gameState.raceActive) return;
-                updateWeather();
-
-                if (gameState.safetyCar.deployed) { const leader = gameState.cars.find(c => !c.retired); if (leader) { gameState.safetyCar.progress = leader.progress - 20; if (gameState.safetyCar.progress < 0) gameState.safetyCar.progress += TRACK_LENGTH; } }
-
-                const oldOrder = gameState.previousOrder.slice(); 
-                gameState.cars.forEach(car => { 
-                    if (car.retired) return;
-                    if (car.pitting) { car.pitStopTime -= (1 / FPS); if (car.pitStopTime <= 0) { car.pitting = false; car.progress = 0; } return; } 
-                    if (car.lap === 1 && Math.abs(car.lateralOffset) > 0.1) car.lateralOffset *= 0.995; else car.lateralOffset = 0; 
-                    
-                    const tyreChoiceIsWrong = (gameState.weather.condition === 'Rain' && car.tyre.type === 'dry') || (gameState.weather.condition === 'Dry' && car.tyre.type === 'wet');
-
-                    if (!car.isPlayer && (car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40) || tyreChoiceIsWrong) && !car.pitRequest) car.pitRequest = true; 
-                    if (car.pitRequest && car.progress >= TRACK_LENGTH - 50 && car.progress < TRACK_LENGTH) { 
-                        addCommentary(`${car.driverName} heads into the pits!`, 'pit-stop', car.lap); 
-                        car.pitStops++; car.pitting = true; car.pitRequest = false; 
-                        if (car.isPlayer) { pitStopModal.show(); gameState.raceActive = false; } 
-                        else { 
-                            let nt = 'Medium';
-                            if (gameState.weather.condition === 'Rain') { nt = car.tyre.wear < 15 ? 'Wet' : 'Intermediate'; } 
-                            else { nt = car.tyre.wear < 15 ? 'Hard' : 'Medium'; }
-                            car.tyre = { ...TYRE_COMPOUNDS[nt], wear: 100, compoundName: nt }; car.pitStopTime = 2.5 + Math.random() * 0.5;
-                        } 
-                    } 
-                    
-                    const push = PUSH_LEVELS[car.pushLevel]; 
-                    const wf = 0.85 + (car.tyre.wear / 100) * 0.15; 
-                    let grip = car.tyre.grip * gameState.weather.grip;
-                    if (tyreChoiceIsWrong) grip *= 0.6; 
-
-                    const currentSegment = trackPath[Math.floor(car.progress) % TRACK_LENGTH];
-                    const speedMod = currentSegment ? currentSegment.speedModifier : 1.0;
-
-                    let baseSpeed = car.team.basePace * grip * push.paceEffect * wf * speedMod * 1.5;
-                    
-                    if(gameState.safetyCar.deployed) { baseSpeed *= 0.5; }
-
-                    car.speed = baseSpeed;
-                    car.progress += car.speed; 
-                    
-                    let degradation = car.tyre.degradation * push.tyreEffect * speedMod;
-                    if(gameState.weather.condition === 'Rain' && car.tyre.type === 'dry') degradation *= 3;
-                    car.tyre.wear -= degradation;
-
-                    if (car.tyre.wear < 0) car.tyre.wear = 0; 
-                    
-                    if (!gameState.raceFinished && Math.random() < 0.00005 && !gameState.safetyCar.deployed) {
-                        car.retired = true;
-                        addCommentary(`${car.driverName} has crashed out of the race!`, 'accident', car.lap);
-                        deploySafetyCar();
-                        if (car.isPlayer) { endRace(null); }
-                    }
-
-                    if (car.progress >= TRACK_LENGTH) { 
-                        car.progress %= TRACK_LENGTH; car.lap++; 
-                        if (car.lap > 1) { 
-                            car.lastLapTime = gameState.raceTime - car.lapStartTime; 
-                            if (car.lastLapTime < gameState.fastestLap.time && !gameState.safetyCar.deployed) { gameState.fastestLap.time = car.lastLapTime; gameState.fastestLap.driver = car.driverName; addCommentary(`New fastest lap from ${car.driverName}: ${car.lastLapTime.toFixed(3)}s`, 'fastest-lap', car.lap); } 
-                        } 
-                        car.lapStartTime = gameState.raceTime; 
-                        
-                        const leader = gameState.cars.find(c => !c.retired);
-                        if (leader && leader.lap > TOTAL_LAPS && !gameState.raceFinished) { endRace(leader); } 
-                        
-                        if (gameState.safetyCar.deployed && leader && car.id === leader.id) {
-                            gameState.safetyCar.laps--;
-                            if (gameState.safetyCar.laps <= 0) { recallSafetyCar(); }
-                        }
-                    } 
-                    car.totalProgress = (car.lap - 1) * TRACK_LENGTH + car.progress; 
-                }); 
-                
-                const activeCars = gameState.cars.filter(c => !c.retired);
-                const retiredCars = gameState.cars.filter(c => c.retired);
-                activeCars.sort((a, b) => b.totalProgress - a.totalProgress); 
-                
-                gameState.cars = [...activeCars, ...retiredCars];
-                
-                const newOrder = activeCars.map(c => c.id);
-                if (!gameState.safetyCar.deployed && !gameState.raceFinished) {
-                    for (let i = 0; i < activeCars.length; i++) { 
-                        const carId = newOrder[i]; const oldPos = oldOrder.indexOf(carId); 
-                        if (oldPos > i) { 
-                            const overtakenCar = gameState.cars.find(c => c.id === oldOrder[i]);
-                            if(overtakenCar) addCommentary(`${activeCars[i].driverName} overtakes ${overtakenCar.driverName} for P${i+1}!`, 'overtake', activeCars[i].lap); 
-                        } 
-                    } 
-                }
-                gameState.previousOrder = newOrder;
-            }
-
-            function updateWeather() {
-                const leader = gameState.cars.find(c => !c.retired);
-                if (!leader || gameState.raceFinished) return;
-                if (leader.lap > gameState.weather.nextChange) {
-                    if (gameState.weather.condition === 'Dry') { gameState.weather.condition = 'Rain'; gameState.weather.grip = 0.8; addCommentary('It has started to rain!', 'weather', leader.lap); } 
-                    else { gameState.weather.condition = 'Dry'; gameState.weather.grip = 1.0; addCommentary('The rain has stopped and the track is drying.', 'weather', leader.lap); }
-                    gameState.weather.nextChange += 10 + Math.random() * 10;
-                }
-            }
-            
-            function deploySafetyCar() { if (gameState.safetyCar.deployed) return; gameState.safetyCar.deployed = true; gameState.safetyCar.laps = 3; const leader = gameState.cars.find(c => !c.retired); if (leader) addCommentary('SAFETY CAR DEPLOYED!', 'safety-car', leader.lap); }
-            function recallSafetyCar() { gameState.safetyCar.deployed = false; const leader = gameState.cars.find(c => !c.retired); if (leader) addCommentary('Safety car is in this lap!', 'safety-car', leader.lap); }
-
-            function endRace(winner) { 
-                if (gameState.raceFinished) return; 
-
-                if (winner) {
-                    gameState.raceFinished = true;
-                    raceFinishTitleEl.textContent = '🏁 Race Finished! 🏁'; 
-                    winnerNameEl.textContent = winner.driverName; 
-                    raceFinishMessageEl.textContent = "Wins the race!";
-                    continueWatchingButton.classList.remove('d-none');
-                } else {
-                    gameState.raceActive = false;
-                    gameState.raceFinished = true;
-                    raceFinishTitleEl.textContent = '💔 Race Over 💔'; 
-                    winnerNameEl.textContent = "DNF"; 
-                    raceFinishMessageEl.textContent = "You crashed out of the race.";
-                    continueWatchingButton.classList.add('d-none');
-                }
-                raceFinishModal.show(); 
-            }
-            
-            function resetToSetup() {
-                gameState.raceActive = false;
-                raceFinishModal.hide();
-                
-                gameState = {
-                    raceActive: false, raceFinished: false, raceTime: 0, cars: [],
-                    fastestLap: { time: Infinity, driver: '' }, previousOrder: [],
-                    safetyCar: { deployed: false, laps: 0, progress: -5 },
-                    weather: { condition: 'Dry', grip: 1.0, nextChange: 0 }
+            // --- INFOGRAPHIC LOGIC ---
+            function initInfographicCharts() {
+                const tooltipTitleCallback = (tooltipItems) => {
+                    const item = tooltipItems[0];
+                    let label = item.chart.data.labels[item.dataIndex];
+                    return Array.isArray(label) ? label.join(' ') : label;
                 };
                 
-                raceScreen.classList.add('d-none');
-                teamSelectionView.classList.remove('d-none');
-                driverSelectionView.classList.add('d-none');
-                trackSelectionView.classList.add('d-none');
-                tyreSelectionView.classList.add('d-none');
-                setupScreen.classList.remove('d-none');
+                const processLabels = (labels) => {
+                    return labels.map(label => {
+                        if (label.length > 16) {
+                            const words = label.split(' ');
+                            let lines = [], currentLine = '';
+                            words.forEach(word => {
+                                if ((currentLine + word).length > 16) {
+                                    lines.push(currentLine.trim());
+                                    currentLine = word + ' ';
+                                } else {
+                                    currentLine += word + ' ';
+                                }
+                            });
+                            lines.push(currentLine.trim());
+                            return lines;
+                        }
+                        return label;
+                    });
+                };
 
-                pitButton.textContent = "Request Pit Stop";
-                pitButton.disabled = false;
-                pushSlider.value = 3;
+                const tyreCtx = document.getElementById('tyreChart').getContext('2d');
+                new Chart(tyreCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Soft', 'Medium', 'Hard', 'Intermediate', 'Wet'],
+                        datasets: [
+                            { label: 'Grip Factor', data: [1.06, 1.00, 0.92, 0.85, 0.75], backgroundColor: '#FF4E50' },
+                            { label: 'Degradation (x100)', data: [1.90, 1.05, 0.60, 1.0, 0.8], backgroundColor: '#FC913A' }
+                        ]
+                    },
+                    options: { indexAxis: 'y', maintainAspectRatio: false, scales: { x: { ticks: { color: '#9CA3AF' }, grid: { color: 'rgba(255, 255, 255, 0.1)' } }, y: { ticks: { color: '#9CA3AF' } } }, plugins: { legend: { labels: { color: '#D1D5DB' } }, tooltip: { callbacks: { title: tooltipTitleCallback } } } }
+                });
 
-                standingsTableBody.innerHTML = '';
-                commentaryBox.innerHTML = '';
+                const weatherCtx = document.getElementById('weatherChart').getContext('2d');
+                new Chart(weatherCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Grip Penalty', 'Remaining Grip'],
+                        datasets: [{ data: [40, 60], backgroundColor: ['#FF4E50', '#4A5568'], borderColor: '#1a1a1a', borderWidth: 4 }]
+                    },
+                    options: { maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { callbacks: { title: tooltipTitleCallback } } } }
+                });
+
+                const teamPaceCtx = document.getElementById('teamPaceChart').getContext('2d');
+                const teamLabels = Object.keys(TEAMS_DATA).sort((a,b) => TEAMS_DATA[b].basePace - TEAMS_DATA[a].basePace);
+                const teamData = teamLabels.map(t => TEAMS_DATA[t].basePace);
+                
+                new Chart(teamPaceCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: processLabels(teamLabels),
+                        datasets: [{ label: 'Base Pace Factor', data: teamData, backgroundColor: ['#FF4E50', '#FC913A', '#F9D423', '#EDE574', '#E1F5C4', '#b6f2a6', '#a0e89e', '#8ad89b', '#72c89a', '#57b899'] }]
+                    },
+                    options: { maintainAspectRatio: false, scales: { y: { beginAtZero: false, min: 0.9, ticks: { color: '#9CA3AF' }, grid: { color: 'rgba(255, 255, 255, 0.1)' } }, x: { ticks: { color: '#9CA3AF' } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: tooltipTitleCallback } } } }
+                });
             }
 
-            function render() { 
-                ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; 
+            // --- SIMULATOR LOGIC ---
+            function initSimulator() {
+                const setupScreen = document.getElementById('setup-screen');
+                const teamSelectionView = document.getElementById('team-selection-view');
+                const teamSelectionContainer = document.getElementById('team-selection');
+                const driverSelectionView = document.getElementById('driver-selection-view');
+                const driverSelectionContainer = document.getElementById('driver-selection');
+                const trackSelectionView = document.getElementById('track-selection-view');
+                const trackSelectionContainer = document.getElementById('track-selection');
+                const tyreSelectionView = document.getElementById('tyre-selection-view');
+                const startingTyreChoices = document.getElementById('starting-tyre-choices');
+                const audioToggleButton = document.getElementById('audio-toggle-button');
+                const raceScreen = document.getElementById('race-screen');
+                const canvas = document.getElementById('race-track');
+                const ctx = canvas.getContext('2d');
+                const standingsTableBody = document.querySelector("#standings-table tbody");
+                const commentaryBox = document.getElementById('commentary-box');
+                const pitStopModal = new bootstrap.Modal(document.getElementById('pit-stop-modal'));
+                const raceFinishModal = new bootstrap.Modal(document.getElementById('race-finish-modal'));
+                const winnerNameEl = document.getElementById('winner-name');
+                const raceFinishTitleEl = document.getElementById('race-finish-title');
+                const raceFinishMessageEl = document.getElementById('race-finish-message');
+                const playerDriverNameEl = document.getElementById('player-driver-name');
+                const playerTeamNameEl = document.getElementById('player-team-name');
+                const lapCounter = document.getElementById('lap-counter');
+                const playerPosition = document.getElementById('player-position');
+                const playerTyreCompound = document.getElementById('player-tyre-compound');
+                const playerTyreWear = document.getElementById('player-tyre-wear');
+                const playerPushText = document.getElementById('player-push-text');
+                const pushSlider = document.getElementById('push-slider');
+                const pitButton = document.getElementById('pit-button');
+                const pitTyreChoices = document.getElementById('pit-tyre-choices');
+                const weatherOverlay = document.getElementById('weather-overlay');
+                const raceStatus = document.getElementById('race-status');
+                const continueWatchingButton = document.getElementById('continue-watching-button');
+                const newRaceButton = document.getElementById('new-race-button');
+                let audioCtx, masterGain, isAudioInitialized = false, isMusicPlaying = false;
+                const NOTE_FREQUENCIES = { 'G3': 196.00, 'C4': 261.63, 'Dsharp4': 311.13, 'G4': 392.00, 'Gsharp4': 415.30, 'Asharp4': 466.16 };
+                const BPM = 124, BEAT_DURATION = 60 / BPM;
+                const MELODY = [ { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Asharp4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Gsharp4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Asharp4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'G4', duration: 0.25 }, { note: 'G3', duration: 0.25 }, { note: 'C4', duration: 0.25 }, { note: 'Dsharp4', duration: 0.25 }, { note: 'Gsharp4', duration: 0.25 } ];
+                function initAudio() { if (isAudioInitialized) return; audioCtx = new (window.AudioContext || window.webkitAudioContext)(); masterGain = audioCtx.createGain(); masterGain.connect(audioCtx.destination); masterGain.gain.value = 1; isAudioInitialized = true; }
+                function playNote(note, startTime, duration) { if (!audioCtx) return; const f = NOTE_FREQUENCIES[note]; if (!f) return; const o = audioCtx.createOscillator(), n = audioCtx.createGain(); o.connect(n); n.connect(masterGain); o.type = 'square'; o.frequency.setValueAtTime(f, startTime); n.gain.setValueAtTime(0, startTime); n.gain.linearRampToValueAtTime(0.5, startTime + 0.01); n.gain.linearRampToValueAtTime(0, startTime + duration); o.start(startTime); o.stop(startTime + duration); }
+                function playSong() { if (!isAudioInitialized || !isMusicPlaying) return; let t = audioCtx.currentTime; MELODY.forEach(n => { const d = n.duration * BEAT_DURATION; playNote(n.note, t, d); t += d; }); setTimeout(playSong, (t - audioCtx.currentTime) * 1000); }
+
+                const TOTAL_LAPS = 50, CAR_COUNT = 20, FPS = 60, TIME_SCALE_FACTOR = 8, ORIGINAL_CANVAS_WIDTH = 1000;
+                let scaleFactor = 1, selectedTeamName = '', selectedDriverName = '', selectedTrackName = '';
+                let gameState = { raceActive: false, raceFinished: false, raceTime: 0, cars: [], fastestLap: { time: Infinity, driver: '' }, previousOrder: [], safetyCar: { deployed: false, laps: 0, progress: -5 }, weather: { condition: 'Dry', grip: 1.0, nextChange: 0 } };
+                const TEAMS = TEAMS_DATA;
+                const TYRE_COMPOUNDS = { Soft: { grip: 1.06, degradation: 0.0190, color: 'red', type: 'dry' }, Medium: { grip: 1.00, degradation: 0.0105, color: 'yellow', type: 'dry' }, Hard: { grip: 0.92, degradation: 0.0060, color: 'white', type: 'dry' }, Intermediate: { grip: 0.85, degradation: 0.01, color: 'green', type: 'wet' }, Wet: { grip: 0.75, degradation: 0.008, color: 'blue', type: 'wet' } };
+                const PUSH_LEVELS = { 1: { name: "Conserve", paceEffect: 0.96, tyreEffect: 0.6 }, 2: { name: "Standard", paceEffect: 0.98, tyreEffect: 0.8 }, 3: { name: "Balanced", paceEffect: 1.00, tyreEffect: 1.0 }, 4: { name: "Pushing", paceEffect: 1.02, tyreEffect: 1.5 }, 5: { name: "Attack", paceEffect: 1.04, tyreEffect: 2.2 } };
                 
-                ctx.strokeStyle = '#555555'; ctx.lineWidth = 20 * scaleFactor;
-                ctx.beginPath();
-                if (trackPath.length > 0) {
-                    ctx.moveTo(trackPath[0].x * scaleFactor, trackPath[0].y * scaleFactor); 
-                    for (let i = 1; i < trackPath.length; i++) ctx.lineTo(trackPath[i].x * scaleFactor, trackPath[i].y * scaleFactor); 
-                    ctx.closePath();
-                }
-                ctx.stroke();
+                const RAW_TRACKS = {
+                    "Bahrain": { points: [ {x:864, y:500}, {x:864, y:409}, {x:864, y:318}, {x:864, y:227}, {x:864, y:136}, {x:854, y:91}, {x:828, y:62}, {x:787, y:48}, {x:741, y:51}, {x:700, y:70}, {x:672, y:98}, {x:658, y:139}, {x:653, y:230}, {x:648, y:321}, {x:643, y:412}, {x:628, y:456}, {x:594, y:478}, {x:546, y:476}, {x:504, y:452}, {x:479, y:412}, {x:477, y:361}, {x:496, y:320}, {x:524, y:286}, {x:534, y:241}, {x:520, y:204}, {x:483, y:180}, {x:436, y:182}, {x:387, y:206}, {x:344, y:244}, {x:304, y:286}, {x:248, y:292}, {x:192, y:298}, {x:141, y:316}, {x:104, y:352}, {x:84, y:404}, {x:86, y:458}, {x:112, y:508}, {x:154, y:542}, {x:214, y:558}, {x:306, y:564}, {x:398, y:564}, {x:490, y:564}, {x:552, y:544}, {x:591, y:520}, {x:644, y:514}, {x:736, y:514}, {x:828, y:508} ], reverse: true },
+                    "Monza": { points: [ {x:430, y:500}, {x:430, y:120}, {x:400, y:90}, {x:350, y:90}, {x:320, y:120}, {x:320, y:250}, {x:250, y:320}, {x:150, y:320}, {x:100, y:370}, {x:100, y:450}, {x:150, y:500}, {x:250, y:500}, {x:300, y:450}, {x:650, y:450}, {x:750, y:500}, {x:850, y:500}, {x:900, y:450}, {x:900, y:150}, {x:850, y:100}, {x:750, y:100}, {x:700, y:150}, {x:700, y:250}, {x:650, y:300}, {x:550, y:300}, {x:500, y:250}, {x:500, y:120}, {x:470, y:90}, {x:430, y:90} ], reverse: true },
+                    "Silverstone": { points: [ {x:350,y:480},{x:550,y:480},{x:620,y:410},{x:800,y:400},{x:900,y:300},{x:900,y:200},{x:800,y:100},{x:200,y:100},{x:100,y:200},{x:150,y:300},{x:300,y:300},{x:350,y:350},{x:250,y:450} ], reverse: false },
+                    "Suzuka": { points: [ {x:480,y:200},{x:550,y:270},{x:520,y:350},{x:400,y:400},{x:250,y:380},{x:150,y:300},{x:200,y:200},{x:300,y:150},{x:450,y:150},{x:600,y:180},{x:750,y:180},{x:850,y:250},{x:800,y:350},{x:700,y:420},{x:550,y:420},{x:480,y:350} ], reverse: true },
+                };
+                let trackPath = [];
+                let TRACK_LENGTH = 0;
 
-                const drawMarker = (index, text, color) => { 
-                    const p1 = trackPath[index % TRACK_LENGTH]; const p2 = trackPath[(index + 1) % TRACK_LENGTH]; 
-                    if (!p1 || !p2) return; 
-                    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); 
-                    const x = p1.x * scaleFactor; const y = p1.y * scaleFactor; 
-                    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); 
-                    if (text) { ctx.fillStyle = color; ctx.font = `bold ${10 * scaleFactor}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, -20 * scaleFactor); } 
-                    ctx.strokeStyle = color; ctx.lineWidth = 2 * scaleFactor; ctx.beginPath(); ctx.moveTo(0, -12 * scaleFactor); ctx.lineTo(0, 12 * scaleFactor); ctx.stroke(); ctx.restore(); 
-                }; 
-                if (TRACK_LENGTH > 0) { drawMarker(0, 'S/F', 'white'); drawMarker(TRACK_LENGTH - 50, 'PIT', 'yellow'); }
-
-                if (gameState.safetyCar.deployed) {
-                    const scIndex = Math.floor(gameState.safetyCar.progress) % TRACK_LENGTH;
-                    const pos = trackPath[scIndex];
-                    if (pos) {
-                        let carX = pos.x * scaleFactor, carY = pos.y * scaleFactor;
-                        const r = 11 * scaleFactor;
-                        ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(carX, carY, r, 0, 2 * Math.PI); ctx.fill();
-                        ctx.fillStyle = 'black'; ctx.font = `bold ${r * 0.9}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('SC', carX, carY);
-                    }
-                }
-
-                gameState.cars.forEach(car => { 
-                    if (car.retired || car.pitting) return; 
-                    const idx = Math.floor(car.progress) % TRACK_LENGTH;
-                    const p1 = trackPath[idx];
-                    const p2 = trackPath[(idx + 1) % TRACK_LENGTH];
-                    if (!p1 || !p2) return; 
-
-                    const segProg = car.progress - Math.floor(car.progress);
-                    const pos = { x: p1.x + (p2.x - p1.x) * segProg, y: p1.y + (p2.y - p1.y) * segProg };
-
-                    let carX = pos.x * scaleFactor, carY = pos.y * scaleFactor; 
-                    if (Math.abs(car.lateralOffset) > 0) { 
-                        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); 
-                        const ox = -Math.sin(angle) * car.lateralOffset * scaleFactor, oy = Math.cos(angle) * car.lateralOffset * scaleFactor; carX += ox; carY += oy; 
-                    } 
-                    const r = 11 * scaleFactor; 
-                    ctx.fillStyle = car.team.color; 
-                    ctx.beginPath(); ctx.arc(carX, carY, r, 0, 2 * Math.PI); ctx.fill(); 
-                    ctx.strokeStyle = 'black'; ctx.lineWidth = Math.max(1, 1.5 * scaleFactor); ctx.stroke(); 
-                    const bright = (parseInt(car.team.color.substring(1,3), 16) * 0.299) + (parseInt(car.team.color.substring(3,5), 16) * 0.587) + (parseInt(car.team.color.substring(5,7), 16) * 0.114); 
-                    ctx.fillStyle = bright > 128 ? 'black' : 'white'; 
-                    ctx.font = `bold ${r * 0.9}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(car.initials, carX, carY); 
-                }); 
-            }
-            
-            function updateUI() {
-                const activeCars = gameState.cars.filter(c => !c.retired);
-                const playerCar = gameState.cars.find(c => c.isPlayer);
-                
-                if (!playerCar || playerCar.retired) { return; }
-
-                const playerRank = activeCars.findIndex(c => c.isPlayer) + 1;
-                
-                playerDriverNameEl.textContent = playerCar.driverName;
-                playerTeamNameEl.textContent = playerCar.teamName;
-                lapCounter.textContent = `${playerCar.lap > TOTAL_LAPS ? TOTAL_LAPS : playerCar.lap} / ${TOTAL_LAPS}`;
-                playerPosition.textContent = `${playerRank > 0 ? playerRank : ''} / ${activeCars.length}`;
-                playerTyreCompound.textContent = playerCar.tyre.compoundName;
-                playerTyreWear.textContent = `${playerCar.tyre.wear.toFixed(1)}%`;
-                playerPushText.textContent = PUSH_LEVELS[playerCar.pushLevel].name;
-                playerTyreWear.style.color = playerCar.tyre.wear > 60 ? 'lightgreen' : playerCar.tyre.wear > 30 ? 'orange' : 'red';
-
-                weatherOverlay.textContent = gameState.weather.condition === 'Rain' ? '🌧️' : '☀️';
-                
-                if (gameState.safetyCar.deployed) { raceStatus.innerHTML = `<span class="badge bg-warning text-dark">Safety Car</span>`; } 
-                else { raceStatus.innerHTML = `<span class="badge bg-success">Green Flag</span>`; }
-
-
-                let tableHTML = "";
-                const leader = activeCars[0];
-                activeCars.forEach((car, index) => {
-                    let gapText = 'Leader';
-                    if (index > 0 && leader) {
-                        const lapsDown = leader.lap - car.lap;
-                        if (lapsDown > 0) {
-                            gapText = `+${lapsDown} Lap${lapsDown > 1 ? 's' : ''}`;
-                        } else {
-                           const timeDiff = car.lapStartTime > leader.lapStartTime ? (car.lapStartTime - leader.lapStartTime) : 0;
-                           const distanceOnTrackDiff = leader.totalProgress - car.totalProgress;
-                           const avgSpeed = (leader.speed + car.speed)/2 || 1;
-                           const timeGap = (distanceOnTrackDiff / (avgSpeed * FPS / TIME_SCALE_FACTOR));
-                           gapText = `+${Math.max(0,timeGap).toFixed(2)}s`;
+                function generateSplinePath(points, segmentsPerCurve = 10) {
+                    const splinePoints = [];
+                    const numPoints = points.length;
+                    for (let i = 0; i < numPoints; i++) {
+                        const p0 = points[(i - 1 + numPoints) % numPoints];
+                        const p1 = points[i];
+                        const p2 = points[(i + 1) % numPoints];
+                        const p3 = points[(i + 2) % numPoints];
+                        for (let j = 0; j < segmentsPerCurve; j++) {
+                            const t = j / segmentsPerCurve;
+                            const t2 = t * t;
+                            const t3 = t2 * t;
+                            const x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+                            const y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+                            splinePoints.push({ x, y });
                         }
                     }
-                    const lastLapText = car.lastLapTime > 0 ? `${car.lastLapTime.toFixed(3)}s` : "-";
-                    const tyreColor = TYRE_COMPOUNDS[car.tyre.compoundName]?.color || 'gray';
-                    const playerClass = car.isPlayer ? 'player-row' : '';
-                    tableHTML += `<tr class="${playerClass}"><td>${index + 1}</td><td>${car.driverName}</td><td>${car.teamName}</td><td>${gapText}</td><td>${lastLapText}</td><td><span class="tyre-indicator" style="background-color:${tyreColor};"></span>${car.tyre.compoundName[0]}</td><td>${car.pitStops}</td></tr>`;
-                });
+                    for (let i = 0; i < splinePoints.length; i++) {
+                        const p_prev = splinePoints[(i - 1 + splinePoints.length) % splinePoints.length];
+                        const p_curr = splinePoints[i];
+                        const p_next = splinePoints[(i + 1) % splinePoints.length];
+                        const v1 = { x: p_curr.x - p_prev.x, y: p_curr.y - p_prev.y };
+                        const v2 = { x: p_next.x - p_curr.x, y: p_next.y - p_curr.y };
+                        const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+                        const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+                        if (mag1 > 0 && mag2 > 0) {
+                            const dot = v1.x * v2.x + v1.y * v2.y;
+                            const cosAngle = dot / (mag1 * mag2);
+                            const turnFactor = (Math.acos(Math.max(-1, Math.min(1, cosAngle)))) / Math.PI;
+                            splinePoints[i].speedModifier = 1.0 - 0.6 * turnFactor;
+                        } else {
+                            splinePoints[i].speedModifier = 1.0;
+                        }
+                    }
+                    return splinePoints;
+                }
 
-                gameState.cars.filter(c => c.retired).forEach(car => {
-                     tableHTML += `<tr class="table-danger"><td>DNF</td><td>${car.driverName}</td><td>${car.teamName}</td><td colspan="4">Retired</td></tr>`;
-                });
+                function addCommentary(message, type = '', lap = 0) { const lapText = lap > 0 ? `(L${lap})` : ''; const p = document.createElement('p'); p.innerHTML = `<span class="text-muted">${lapText}</span> ${message}`; if(type) p.classList.add(`commentary-${type}`); commentaryBox.insertBefore(p, commentaryBox.firstChild); if (commentaryBox.children.length > 50) commentaryBox.removeChild(commentaryBox.lastChild); commentaryBox.scrollTop = 0; }
+                
+                function initSetup() { 
+                    teamSelectionContainer.innerHTML = '';
+                    trackSelectionContainer.innerHTML = '';
+                    for (const t in TEAMS) { const b = document.createElement('button'); b.className = 'btn btn-outline-light'; b.innerText = t; b.style.setProperty('--bs-btn-border-color', TEAMS[t].color); b.style.setProperty('--bs-btn-hover-bg', TEAMS[t].color); b.addEventListener('click', () => selectTeam(t)); teamSelectionContainer.appendChild(b); } 
+                    for (const t in RAW_TRACKS) { const b = document.createElement('button'); b.className = 'btn btn-outline-light'; b.innerText = t; b.addEventListener('click', () => selectTrack(t)); trackSelectionContainer.appendChild(b); }
+                }
+                
+                function resizeCanvas() { const c = document.getElementById('race-container'); const r = 600 / 1000; canvas.width = c.clientWidth; canvas.height = c.clientWidth * r; scaleFactor = canvas.width / ORIGINAL_CANVAS_WIDTH; }
+                
+                function selectTeam(t) { selectedTeamName = t; driverSelectionContainer.innerHTML = ''; TEAMS[t].drivers.forEach(driver => { const b = document.createElement('button'); b.className = 'btn btn-outline-light'; b.innerText = driver; b.addEventListener('click', () => selectDriver(driver)); driverSelectionContainer.appendChild(b); }); teamSelectionView.classList.add('d-none'); driverSelectionView.classList.remove('d-none'); }
+                function selectDriver(d) { selectedDriverName = d; driverSelectionView.classList.add('d-none'); trackSelectionView.classList.remove('d-none'); }
+                function selectTrack(t) { selectedTrackName = t; let points = RAW_TRACKS[t].points; if (RAW_TRACKS[t].reverse) { points.reverse(); } trackPath = generateSplinePath(points, 20); TRACK_LENGTH = trackPath.length; trackSelectionView.classList.add('d-none'); tyreSelectionView.classList.remove('d-none'); }
+                function startRace(t) { addCommentary("IT'S LIGHTS OUT AND AWAY WE GO!", 'race-start'); setupScreen.classList.add('d-none'); raceScreen.classList.remove('d-none'); resizeCanvas(); initRace(t); }
+                
+                function initRace(playerTyre) { 
+                    gameState = { raceActive: false, raceFinished: false, raceTime: 0, cars: [], fastestLap: { time: Infinity, driver: '' }, previousOrder: [], safetyCar: { deployed: false, laps: 0, progress: -5 }, weather: { condition: 'Dry', grip: 1.0, nextChange: 0 } };
+                    let pool = []; 
+                    for(const t in TEAMS) { TEAMS[t].drivers.forEach(d => pool.push({ team: t, driver: d })); }
+                    gameState.cars.push(createCar(0, selectedTeamName, selectedDriverName, true, playerTyre)); 
+                    pool = pool.filter(d => d.driver !== selectedDriverName); 
+                    for (let i = 1; i < CAR_COUNT; i++) { const d_i = pool[i-1]; const r_t = ['Soft', 'Medium', 'Hard'][Math.floor(Math.random() * 3)]; gameState.cars.push(createCar(i, d_i.team, d_i.driver, false, r_t)); } 
+                    gameState.previousOrder = gameState.cars.map(c => c.id); 
+                    gameState.raceActive = true; 
+                    gameState.weather.nextChange = 10 + Math.random() * 10;
+                    gameLoop(); 
+                }
+                
+                function createCar(id, teamName, driverName, isPlayer, startingTyre) { const parts = driverName.split(' '); const initials = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : driverName.substring(0, 2).toUpperCase(); const row = Math.floor(id / 2); const progress = -row * 25; return { id, isPlayer, teamName, driverName, initials, team: TEAMS[teamName], progress, lateralOffset: (id % 2 === 0 ? -1 : 1) * 5, totalProgress: progress, lap: 1, speed: 0, pushLevel: 3, tyre: { ...TYRE_COMPOUNDS[startingTyre], wear: 100, compoundName: startingTyre }, pitting: false, pitRequest: false, pitStopTime: 0, lapStartTime: 0, lastLapTime: 0, retired: false, pitStops: 0 }; }
+                function gameLoop() { if (!gameState.raceActive) return; gameState.raceTime += (1 / FPS) * TIME_SCALE_FACTOR; updateState(); render(); updateUI(); requestAnimationFrame(gameLoop); }
 
-                standingsTableBody.innerHTML = tableHTML;
+                function updateState() { 
+                    if (gameState.raceFinished && !gameState.raceActive) return;
+                    updateWeather();
+
+                    if (gameState.safetyCar.deployed) { const leader = gameState.cars.find(c => !c.retired); if (leader) { gameState.safetyCar.progress = leader.progress - 20; if (gameState.safetyCar.progress < 0) gameState.safetyCar.progress += TRACK_LENGTH; } }
+
+                    const oldOrder = gameState.previousOrder.slice(); 
+                    gameState.cars.forEach(car => { 
+                        if (car.retired) return;
+                        if (car.pitting) { car.pitStopTime -= (1 / FPS); if (car.pitStopTime <= 0) { car.pitting = false; car.progress = 0; } return; } 
+                        if (car.lap === 1 && Math.abs(car.lateralOffset) > 0.1) car.lateralOffset *= 0.995; else car.lateralOffset = 0; 
+                        const tyreChoiceIsWrong = (gameState.weather.condition === 'Rain' && car.tyre.type === 'dry') || (gameState.weather.condition === 'Dry' && car.tyre.type === 'wet');
+
+                        if (!car.isPlayer && (car.tyre.wear < 25 || (car.tyre.compoundName === 'Soft' && car.tyre.wear < 40) || tyreChoiceIsWrong) && !car.pitRequest) car.pitRequest = true; 
+                        if (car.pitRequest && car.progress >= TRACK_LENGTH - 50 && car.progress < TRACK_LENGTH) { 
+                            addCommentary(`${car.driverName} heads into the pits!`, 'pit-stop', car.lap); 
+                            car.pitStops++; car.pitting = true; car.pitRequest = false; 
+                            if (car.isPlayer) { pitStopModal.show(); gameState.raceActive = false; } 
+                            else { 
+                                let nt = 'Medium';
+                                if (gameState.weather.condition === 'Rain') { nt = car.tyre.wear < 15 ? 'Wet' : 'Intermediate'; } 
+                                else { nt = car.tyre.wear < 15 ? 'Hard' : 'Medium'; }
+                                car.tyre = { ...TYRE_COMPOUNDS[nt], wear: 100, compoundName: nt }; car.pitStopTime = 2.5 + Math.random() * 0.5;
+                            } 
+                        } 
+                        const push = PUSH_LEVELS[car.pushLevel]; 
+                        const wf = 0.85 + (car.tyre.wear / 100) * 0.15; 
+                        let grip = car.tyre.grip * gameState.weather.grip;
+                        if (tyreChoiceIsWrong) grip *= 0.6; 
+
+                        const currentSegment = trackPath[Math.floor(car.progress) % TRACK_LENGTH];
+                        const speedMod = currentSegment ? currentSegment.speedModifier : 1.0;
+
+                        let baseSpeed = car.team.basePace * grip * push.paceEffect * wf * speedMod * 1.5;
+                        if(gameState.safetyCar.deployed) { baseSpeed *= 0.5; }
+
+                        car.speed = baseSpeed;
+                        car.progress += car.speed; 
+                        let degradation = car.tyre.degradation * push.tyreEffect * speedMod;
+                        if(gameState.weather.condition === 'Rain' && car.tyre.type === 'dry') degradation *= 3;
+                        car.tyre.wear -= degradation;
+
+                        if (car.tyre.wear < 0) car.tyre.wear = 0; 
+                        if (!gameState.raceFinished && Math.random() < 0.00005 && !gameState.safetyCar.deployed) {
+                            car.retired = true;
+                            addCommentary(`${car.driverName} has crashed out of the race!`, 'accident', car.lap);
+                            deploySafetyCar();
+                            if (car.isPlayer) { endRace(null); }
+                        }
+                        if (car.progress >= TRACK_LENGTH) { 
+                            car.progress %= TRACK_LENGTH; car.lap++; 
+                            if (car.lap > 1) { 
+                                car.lastLapTime = gameState.raceTime - car.lapStartTime; 
+                                if (car.lastLapTime < gameState.fastestLap.time && !gameState.safetyCar.deployed) { gameState.fastestLap.time = car.lastLapTime; gameState.fastestLap.driver = car.driverName; addCommentary(`New fastest lap from ${car.driverName}: ${car.lastLapTime.toFixed(3)}s`, 'fastest-lap', car.lap); } 
+                            } 
+                            car.lapStartTime = gameState.raceTime; 
+                            const leader = gameState.cars.find(c => !c.retired);
+                            if (leader && leader.lap > TOTAL_LAPS && !gameState.raceFinished) { endRace(leader); } 
+                            if (gameState.safetyCar.deployed && leader && car.id === leader.id) {
+                                gameState.safetyCar.laps--;
+                                if (gameState.safetyCar.laps <= 0) { recallSafetyCar(); }
+                            }
+                        } 
+                        car.totalProgress = (car.lap - 1) * TRACK_LENGTH + car.progress; 
+                    }); 
+                    const activeCars = gameState.cars.filter(c => !c.retired);
+                    const retiredCars = gameState.cars.filter(c => c.retired);
+                    activeCars.sort((a, b) => b.totalProgress - a.totalProgress); 
+                    gameState.cars = [...activeCars, ...retiredCars];
+                    const newOrder = activeCars.map(c => c.id);
+                    if (!gameState.safetyCar.deployed && !gameState.raceFinished) {
+                        for (let i = 0; i < activeCars.length; i++) { 
+                            const carId = newOrder[i]; const oldPos = oldOrder.indexOf(carId); 
+                            if (oldPos > i) { 
+                                const overtakenCar = gameState.cars.find(c => c.id === oldOrder[i]);
+                                if(overtakenCar) addCommentary(`${activeCars[i].driverName} overtakes ${overtakenCar.driverName} for P${i+1}!`, 'overtake', activeCars[i].lap); 
+                            } 
+                        } 
+                    }
+                    gameState.previousOrder = newOrder;
+                }
+
+                function updateWeather() {
+                    const leader = gameState.cars.find(c => !c.retired);
+                    if (!leader || gameState.raceFinished) return;
+                    if (leader.lap > gameState.weather.nextChange) {
+                        if (gameState.weather.condition === 'Dry') { gameState.weather.condition = 'Rain'; gameState.weather.grip = 0.8; addCommentary('It has started to rain!', 'weather', leader.lap); } 
+                        else { gameState.weather.condition = 'Dry'; gameState.weather.grip = 1.0; addCommentary('The rain has stopped and the track is drying.', 'weather', leader.lap); }
+                        gameState.weather.nextChange += 10 + Math.random() * 10;
+                    }
+                }
+                
+                function deploySafetyCar() { if (gameState.safetyCar.deployed) return; gameState.safetyCar.deployed = true; gameState.safetyCar.laps = 3; const leader = gameState.cars.find(c => !c.retired); if (leader) addCommentary('SAFETY CAR DEPLOYED!', 'safety-car', leader.lap); }
+                function recallSafetyCar() { gameState.safetyCar.deployed = false; const leader = gameState.cars.find(c => !c.retired); if (leader) addCommentary('Safety car is in this lap!', 'safety-car', leader.lap); }
+
+                function endRace(winner) { 
+                    if (gameState.raceFinished) return; 
+                    if (winner) {
+                        gameState.raceFinished = true; raceFinishTitleEl.textContent = '🏁 Race Finished! 🏁'; winnerNameEl.textContent = winner.driverName; raceFinishMessageEl.textContent = "Wins the race!"; continueWatchingButton.classList.remove('d-none');
+                    } else {
+                        gameState.raceActive = false; gameState.raceFinished = true; raceFinishTitleEl.textContent = '💔 Race Over 💔'; winnerNameEl.textContent = "DNF"; raceFinishMessageEl.textContent = "You crashed out of the race."; continueWatchingButton.classList.add('d-none');
+                    }
+                    raceFinishModal.show(); 
+                }
+                
+                function resetToSetup() {
+                    gameState.raceActive = false;
+                    raceFinishModal.hide();
+                    simulatorContainer.classList.add('d-none');
+                    infographicScreen.classList.remove('d-none');
+                    document.body.style.backgroundColor = '#1a1a1a';
+                    initSetup();
+                }
+
+                function render() { 
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; 
+                    ctx.strokeStyle = '#555555'; ctx.lineWidth = 20 * scaleFactor;
+                    ctx.beginPath();
+                    if (trackPath.length > 0) {
+                        ctx.moveTo(trackPath[0].x * scaleFactor, trackPath[0].y * scaleFactor); 
+                        for (let i = 1; i < trackPath.length; i++) ctx.lineTo(trackPath[i].x * scaleFactor, trackPath[i].y * scaleFactor); 
+                        ctx.closePath();
+                    }
+                    ctx.stroke();
+                    const drawMarker = (index, text, color) => { 
+                        const p1 = trackPath[index % TRACK_LENGTH]; const p2 = trackPath[(index + 1) % TRACK_LENGTH]; 
+                        if (!p1 || !p2) return; 
+                        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); 
+                        const x = p1.x * scaleFactor; const y = p1.y * scaleFactor; 
+                        ctx.save(); ctx.translate(x, y); ctx.rotate(angle); 
+                        if (text) { ctx.fillStyle = color; ctx.font = `bold ${10 * scaleFactor}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, -20 * scaleFactor); } 
+                        ctx.strokeStyle = color; ctx.lineWidth = 2 * scaleFactor; ctx.beginPath(); ctx.moveTo(0, -12 * scaleFactor); ctx.lineTo(0, 12 * scaleFactor); ctx.stroke(); ctx.restore(); 
+                    }; 
+                    if (TRACK_LENGTH > 0) { drawMarker(0, 'S/F', 'white'); drawMarker(TRACK_LENGTH - 50, 'PIT', 'yellow'); }
+                    if (gameState.safetyCar.deployed) {
+                        const scIndex = Math.floor(gameState.safetyCar.progress) % TRACK_LENGTH;
+                        const pos = trackPath[scIndex];
+                        if (pos) {
+                            let carX = pos.x * scaleFactor, carY = pos.y * scaleFactor;
+                            const r = 11 * scaleFactor;
+                            ctx.fillStyle = 'orange'; ctx.beginPath(); ctx.arc(carX, carY, r, 0, 2 * Math.PI); ctx.fill();
+                            ctx.fillStyle = 'black'; ctx.font = `bold ${r * 0.9}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('SC', carX, carY);
+                        }
+                    }
+                    gameState.cars.forEach(car => { 
+                        if (car.retired || car.pitting) return; 
+                        const idx = Math.floor(car.progress) % TRACK_LENGTH;
+                        const p1 = trackPath[idx];
+                        const p2 = trackPath[(idx + 1) % TRACK_LENGTH];
+                        if (!p1 || !p2) return; 
+                        const segProg = car.progress - Math.floor(car.progress);
+                        const pos = { x: p1.x + (p2.x - p1.x) * segProg, y: p1.y + (p2.y - p1.y) * segProg };
+                        let carX = pos.x * scaleFactor, carY = pos.y * scaleFactor; 
+                        if (Math.abs(car.lateralOffset) > 0) { 
+                            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); 
+                            const ox = -Math.sin(angle) * car.lateralOffset * scaleFactor, oy = Math.cos(angle) * car.lateralOffset * scaleFactor; carX += ox; carY += oy; 
+                        } 
+                        const r = 11 * scaleFactor; 
+                        ctx.fillStyle = car.team.color; 
+                        ctx.beginPath(); ctx.arc(carX, carY, r, 0, 2 * Math.PI); ctx.fill(); 
+                        ctx.strokeStyle = 'black'; ctx.lineWidth = Math.max(1, 1.5 * scaleFactor); ctx.stroke(); 
+                        const bright = (parseInt(car.team.color.substring(1,3), 16) * 0.299) + (parseInt(car.team.color.substring(3,5), 16) * 0.587) + (parseInt(car.team.color.substring(5,7), 16) * 0.114); 
+                        ctx.fillStyle = bright > 128 ? 'black' : 'white'; 
+                        ctx.font = `bold ${r * 0.9}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(car.initials, carX, carY); 
+                    }); 
+                }
+                
+                function updateUI() {
+                    const activeCars = gameState.cars.filter(c => !c.retired);
+                    const playerCar = gameState.cars.find(c => c.isPlayer);
+                    if (!playerCar || playerCar.retired) { return; }
+                    const playerRank = activeCars.findIndex(c => c.isPlayer) + 1;
+                    playerDriverNameEl.textContent = playerCar.driverName;
+                    playerTeamNameEl.textContent = playerCar.teamName;
+                    lapCounter.textContent = `${playerCar.lap > TOTAL_LAPS ? TOTAL_LAPS : playerCar.lap} / ${TOTAL_LAPS}`;
+                    playerPosition.textContent = `${playerRank > 0 ? playerRank : ''} / ${activeCars.length}`;
+                    playerTyreCompound.textContent = playerCar.tyre.compoundName;
+                    playerTyreWear.textContent = `${playerCar.tyre.wear.toFixed(1)}%`;
+                    playerPushText.textContent = PUSH_LEVELS[playerCar.pushLevel].name;
+                    playerTyreWear.style.color = playerCar.tyre.wear > 60 ? 'lightgreen' : playerCar.tyre.wear > 30 ? 'orange' : 'red';
+                    weatherOverlay.textContent = gameState.weather.condition === 'Rain' ? '🌧️' : '☀️';
+                    if (gameState.safetyCar.deployed) { raceStatus.innerHTML = `<span class="badge bg-warning text-dark">Safety Car</span>`; } 
+                    else { raceStatus.innerHTML = `<span class="badge bg-success">Green Flag</span>`; }
+                    let tableHTML = "";
+                    const leader = activeCars[0];
+                    activeCars.forEach((car, index) => {
+                        let gapText = 'Leader';
+                        if (index > 0 && leader) {
+                            const lapsDown = leader.lap - car.lap;
+                            if (lapsDown > 0) {
+                                gapText = `+${lapsDown} Lap${lapsDown > 1 ? 's' : ''}`;
+                            } else {
+                               const distanceOnTrackDiff = leader.totalProgress - car.totalProgress;
+                               const avgSpeed = (leader.speed + car.speed)/2 || 1;
+                               const timeGap = (distanceOnTrackDiff / (avgSpeed * FPS / TIME_SCALE_FACTOR));
+                               gapText = `+${Math.max(0,timeGap).toFixed(2)}s`;
+                            }
+                        }
+                        const lastLapText = car.lastLapTime > 0 ? `${car.lastLapTime.toFixed(3)}s` : "-";
+                        const tyreColor = TYRE_COMPOUNDS[car.tyre.compoundName]?.color || 'gray';
+                        const playerClass = car.isPlayer ? 'player-row' : '';
+                        tableHTML += `<tr class="${playerClass}"><td>${index + 1}</td><td>${car.driverName}</td><td>${car.teamName}</td><td>${gapText}</td><td>${lastLapText}</td><td><span class="tyre-indicator" style="background-color:${tyreColor};"></span>${car.tyre.compoundName[0]}</td><td>${car.pitStops}</td></tr>`;
+                    });
+                    gameState.cars.filter(c => c.retired).forEach(car => {
+                         tableHTML += `<tr class="table-danger"><td>DNF</td><td>${car.driverName}</td><td>${car.teamName}</td><td colspan="4">Retired</td></tr>`;
+                    });
+                    standingsTableBody.innerHTML = tableHTML;
+                }
+
+                initSetup(); // Initialize simulator setup buttons
+                
+                audioToggleButton.addEventListener('click', () => { initAudio(); isMusicPlaying = !isMusicPlaying; if (isMusicPlaying) { audioCtx.resume(); playSong(); audioToggleButton.textContent = '🎵 Mute'; masterGain.gain.setValueAtTime(1, audioCtx.currentTime); } else { masterGain.gain.setValueAtTime(0, audioCtx.currentTime); audioToggleButton.textContent = '🎵 Unmute'; } });
+                startingTyreChoices.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { if (isAudioInitialized && isMusicPlaying) { masterGain.gain.setValueAtTime(0, audioCtx.currentTime); isMusicPlaying = false; audioToggleButton.textContent = '🎵 Play Music'; audioToggleButton.disabled = true; } startRace(e.target.dataset.tyre); } });
+                pushSlider.addEventListener('input', (e) => { const p = gameState.cars.find(c => c.isPlayer); if (p) p.pushLevel = parseInt(e.target.value); });
+                pitButton.addEventListener('click', () => { const p = gameState.cars.find(c => c.isPlayer); if (p && !p.pitRequest && !p.pitting) { p.pitRequest = true; pitButton.textContent = "Pit Stop Requested"; pitButton.disabled = true; } });
+                pitTyreChoices.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const t = e.target.dataset.tyre; const p = gameState.cars.find(c => c.isPlayer); if (p) { p.tyre = { ...TYRE_COMPOUNDS[t], wear: 100, compoundName: t }; p.pitStopTime = 2.5 + Math.random() * 0.5; pitButton.textContent = "Request Pit Stop"; pitButton.disabled = false; pitStopModal.hide(); gameState.raceActive = true; gameLoop(); } } });
+                newRaceButton.addEventListener('click', resetToSetup);
+                window.addEventListener('resize', resizeCanvas);
             }
 
-            // --- EVENT LISTENERS ---
-            startSetupButton.addEventListener('click', () => { introScreen.classList.add('d-none'); setupScreen.classList.remove('d-none'); });
-            audioToggleButton.addEventListener('click', () => { initAudio(); isMusicPlaying = !isMusicPlaying; if (isMusicPlaying) { audioCtx.resume(); playSong(); audioToggleButton.textContent = '🎵 Mute'; masterGain.gain.setValueAtTime(1, audioCtx.currentTime); } else { masterGain.gain.setValueAtTime(0, audioCtx.currentTime); audioToggleButton.textContent = '🎵 Unmute'; } });
-            startingTyreChoices.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { if (isAudioInitialized && isMusicPlaying) { masterGain.gain.setValueAtTime(0, audioCtx.currentTime); isMusicPlaying = false; audioToggleButton.textContent = '🎵 Play Music'; audioToggleButton.disabled = true; } startRace(e.target.dataset.tyre); } });
-            pushSlider.addEventListener('input', (e) => { const p = gameState.cars.find(c => c.isPlayer); if (p) p.pushLevel = parseInt(e.target.value); });
-            pitButton.addEventListener('click', () => { const p = gameState.cars.find(c => c.isPlayer); if (p && !p.pitRequest && !p.pitting) { p.pitRequest = true; pitButton.textContent = "Pit Stop Requested"; pitButton.disabled = true; } });
-            pitTyreChoices.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { const t = e.target.dataset.tyre; const p = gameState.cars.find(c => c.isPlayer); if (p) { p.tyre = { ...TYRE_COMPOUNDS[t], wear: 100, compoundName: t }; p.pitStopTime = 2.5 + Math.random() * 0.5; pitButton.textContent = "Request Pit Stop"; pitButton.disabled = false; pitStopModal.hide(); gameState.raceActive = true; gameLoop(); } } });
-            newRaceButton.addEventListener('click', resetToSetup);
-            window.addEventListener('resize', resizeCanvas);
-            
-            // --- START ---
-            initSetup();
+            // --- INITIALIZATION ---
+            initInfographicCharts();
+
+            startSimulatorButton.addEventListener('click', () => {
+                infographicScreen.classList.add('d-none');
+                simulatorContainer.classList.remove('d-none');
+                document.body.style.backgroundColor = '#212529';
+                initSimulator();
+            });
         });
     </script>
 </body>
 </html>
-
 
 
